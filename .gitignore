@@ -1,0 +1,73 @@
+# Keep the current Cartographer 2D + Nav2 project in Git.
+# Everything else at the workspace root remains local by default:
+# homeworks/, notes/, docker/, config/, build/, install/, log/, .vscode/,
+# and the superseded 小组分工.md.
+/*
+!/.gitignore
+!/README.md
+!/五人分工与验收方案.pdf
+
+# Keep documentation sources, figures, build configuration and released PDFs.
+!/docs/
+/docs/**/.build/
+
+# LaTeX intermediate files; keep .tex, images, .drawio, .latexmkrc and final PDFs.
+/docs/**/*.aux
+/docs/**/*.fdb_latexmk
+/docs/**/*.fls
+/docs/**/*.log
+/docs/**/*.out
+/docs/**/*.xdv
+/docs/**/*.dvi
+/docs/**/*.synctex*
+/docs/**/*.toc
+/docs/**/*.lof
+/docs/**/*.lot
+/docs/**/*.nav
+/docs/**/*.snm
+/docs/**/*.vrb
+/docs/**/*.bcf
+/docs/**/*.blg
+/docs/**/*.run.xml
+
+# Smartcar architecture packages, including newly added project plugins.
+!/src/
+/src/*
+!/src/smartcar_*/
+/src/smartcar_intro/
+
+# Legacy course-only Gazebo examples and their tests.
+/src/smartcar_gazebo/launch/week*.launch.py
+/src/smartcar_gazebo/worlds/lesson*.sdf
+/src/smartcar_gazebo/config/slam_params.yaml
+/src/smartcar_gazebo/test/
+
+# Setup and validation tools for the integrated system.
+!/scripts/
+/scripts/*
+!/scripts/install_dependencies.sh
+!/scripts/setup_workspace.sh
+!/scripts/validate_system.py
+!/scripts/verify_*.py
+!/scripts/generate_wheel_collision.py
+
+# Keep the map output directory, but not generated map snapshots.
+!/maps/
+/maps/*
+!/maps/.gitkeep
+
+# Generated files inside otherwise retained packages.
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.o
+*.so
+*.a
+*~
+*.swp
+*.swo

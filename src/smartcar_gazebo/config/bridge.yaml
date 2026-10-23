@@ -1,0 +1,7 @@
+topics:
+  - "/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock"
+  - "/car/scan@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan"
+  - "/car/imu/gz@sensor_msgs/msg/Imu[gz.msgs.IMU"
+  - "/car/chassis/odom/gz@nav_msgs/msg/Odometry[gz.msgs.Odometry"
+  - "/joint_states@sensor_msgs/msg/JointState[gz.msgs.Model"
+  - "/car/chassis/cmd_vel/gz@geometry_msgs/msg/Twist]gz.msgs.Twist"

@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>smartcar_tools</name><version>0.1.0</version>
+  <description>Command line tools for Smartcar navigation, map saving and health checks.</description>
+  <maintainer email="student@example.com">student</maintainer><license>Apache-2.0</license>
+  <buildtool_depend>ament_python</buildtool_depend>
+  <exec_depend>rclpy</exec_depend><exec_depend>action_msgs</exec_depend><exec_depend>nav2_msgs</exec_depend><exec_depend>nav_msgs</exec_depend><exec_depend>geometry_msgs</exec_depend><exec_depend>sensor_msgs</exec_depend><exec_depend>std_msgs</exec_depend><exec_depend>cartographer_ros_msgs</exec_depend>
+  <exec_depend>lifecycle_msgs</exec_depend>
+  <exec_depend>tf2_ros</exec_depend>
+  <export><build_type>ament_python</build_type></export>
+</package>

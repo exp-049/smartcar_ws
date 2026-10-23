@@ -1,0 +1,42 @@
+<!-- Keep a valid detour while checking its next 1.2 m at 2 Hz.
+     Distant cells still update in the global costmap, but do not force the
+     robot to alternate wall sides during every SLAM raster update.
+     MPPI and Collision Monitor always check live obstacles locally. -->
+<root BTCPP_format="4" main_tree_to_execute="MainTree">
+  <BehaviorTree ID="MainTree">
+    <RecoveryNode number_of_retries="3" name="NavigateRecovery">
+      <PipelineSequence name="NavigateWithStableDetour">
+        <RateController hz="2.0">
+          <Fallback name="KeepDetourOrReplan">
+            <ReactiveSequence name="CheckUpcomingPath">
+              <Inverter><GlobalUpdatedGoal/></Inverter>
+              <TruncatePathLocal input_path="{path}" output_path="{upcoming_path}"
+                                 distance_forward="1.2" distance_backward="0.0"
+                                 robot_frame="base_link"/>
+              <IsPathValid path="{upcoming_path}" server_timeout="150"/>
+            </ReactiveSequence>
+            <ComputePathToPose goal="{goal}" path="{path}" planner_id="GridBased"
+                               error_code_id="{compute_path_error_code}"/>
+          </Fallback>
+        </RateController>
+        <FollowPath path="{path}" controller_id="FollowPath"
+                    error_code_id="{follow_path_error_code}"/>
+      </PipelineSequence>
+      <ReactiveFallback name="BoundedRecovery">
+        <GoalUpdated/>
+        <RoundRobin>
+          <Sequence name="WaitAndReplan">
+            <Wait wait_duration="1.0"/>
+            <ComputePathToPose goal="{goal}" path="{path}" planner_id="GridBased"
+                               error_code_id="{compute_path_error_code}"/>
+          </Sequence>
+          <Sequence name="BackUpAndReplan">
+            <BackUp backup_dist="0.10" backup_speed="0.03"/>
+            <ComputePathToPose goal="{goal}" path="{path}" planner_id="GridBased"
+                               error_code_id="{compute_path_error_code}"/>
+          </Sequence>
+        </RoundRobin>
+      </ReactiveFallback>
+    </RecoveryNode>
+  </BehaviorTree>
+</root>

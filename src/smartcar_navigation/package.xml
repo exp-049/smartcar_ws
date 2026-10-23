@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>smartcar_navigation</name><version>0.1.0</version>
+  <description>Smac 2D, MPPI, Nav2 costmap and behavior tree configuration.</description>
+  <maintainer email="student@example.com">student</maintainer><license>Apache-2.0</license>
+  <buildtool_depend>ament_python</buildtool_depend>
+  <exec_depend>launch</exec_depend><exec_depend>launch_ros</exec_depend>
+  <exec_depend>nav2_bringup</exec_depend><exec_depend>nav2_map_server</exec_depend>
+  <exec_depend>nav2_lifecycle_manager</exec_depend>
+  <exec_depend>nav2_mppi_controller</exec_depend>
+  <exec_depend>nav2_rotation_shim_controller</exec_depend>
+  <exec_depend>nav2_smac_planner</exec_depend>
+  <exec_depend>smartcar_tools</exec_depend>
+  <exec_depend>smartcar_costmap_plugins</exec_depend>
+  <export><build_type>ament_python</build_type></export>
+</package>

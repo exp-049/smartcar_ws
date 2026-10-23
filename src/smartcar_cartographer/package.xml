@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>smartcar_cartographer</name>
+  <version>0.1.0</version>
+  <description>Cartographer 2D configuration and launch files for Smartcar.</description>
+  <maintainer email="student@example.com">student</maintainer>
+  <license>Apache-2.0</license>
+  <buildtool_depend>ament_python</buildtool_depend>
+  <exec_depend>launch</exec_depend><exec_depend>launch_ros</exec_depend>
+  <exec_depend>cartographer_ros</exec_depend><exec_depend>cartographer</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend><exec_depend>nav_msgs</exec_depend>
+  <export><build_type>ament_python</build_type></export>
+</package>

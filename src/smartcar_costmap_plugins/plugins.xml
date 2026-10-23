@@ -1,0 +1,7 @@
+<library path="unknown_cost_layer">
+  <class name="smartcar_costmap_plugins::UnknownCostLayer"
+         type="smartcar_costmap_plugins::UnknownCostLayer"
+         base_class_type="nav2_costmap_2d::Layer">
+    <description>Assign a small traversable cost to remaining unknown global cells.</description>
+  </class>
+</library>

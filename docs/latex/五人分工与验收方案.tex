@@ -1,0 +1,363 @@
+% !TeX program = xelatex
+% UTF-8；三张拓扑图片引用工作区 docs/latex/images，正文与工作区版本同步维护。
+\documentclass[UTF8,fontset=fandol,11pt,a4paper]{ctexart}
+\usepackage[margin=23mm,headheight=14pt]{geometry}
+\usepackage{array,longtable,booktabs}
+\usepackage[table]{xcolor}
+\usepackage{graphicx}
+\usepackage{enumitem}
+\usepackage{needspace}
+\usepackage{caption}
+\usepackage{url}
+\usepackage[colorlinks=true,urlcolor=blue!45!black,linkcolor=black]{hyperref}
+\usepackage{fancyhdr}
+\urlstyle{tt}
+\definecolor{TableBorder}{HTML}{D9D9D9}
+\definecolor{TableHead}{HTML}{E8EFF5}
+\arrayrulecolor{TableBorder}
+\setlength{\tabcolsep}{5pt}
+\renewcommand{\arraystretch}{1.28}
+\setlength{\parindent}{2em}
+\setlength{\parskip}{4pt}
+\linespread{1.15}
+\setlist{nosep,topsep=5pt,parsep=2pt,leftmargin=2em}
+\setlength{\emergencystretch}{2em}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyfoot[C]{\small 第\thepage 页}
+\renewcommand{\headrulewidth}{0pt}
+\renewcommand{\footrulewidth}{0pt}
+\ctexset{
+  section={format=\Large\bfseries,beforeskip=16pt,afterskip=9pt},
+  subsection={format=\large\bfseries,beforeskip=13pt,afterskip=7pt},
+  subsubsection={format=\normalsize\bfseries,beforeskip=10pt,afterskip=5pt}
+}
+\captionsetup{font=small,labelfont=bf,skip=7pt,hypcap=false}
+\hypersetup{pdftitle={差速小车系统架构与五人分工},pdfauthor={}}
+\title{\LARGE\bfseries 差速小车系统架构与五人分工}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+\thispagestyle{fancy}
+\vspace{-2.0em}
+
+\section{系统图}
+
+% 使用工作区中维护的工程框图；此图片为编译所需的外部资源。
+\begin{center}
+\includegraphics[width=\linewidth,keepaspectratio]{/home/doc049/dev/smartcar_ws/docs/latex/images/工程框图.png}
+\captionof{figure}{工程流程与消息拓扑}
+\end{center}
+
+系统主链路。全局和局部代价地图分别由规划服务器、控制服务器管理，插件在进程内读取代价地图。接口消息类型、参考频率和发布责任见下表。
+
+\subsection{硬件拓扑}
+\begin{center}
+\includegraphics[width=\linewidth,keepaspectratio]{/home/doc049/dev/smartcar_ws/docs/latex/images/硬件拓扑.png}
+\captionof{figure}{小车与上位机硬件连接拓扑}
+\end{center}
+
+MPU6050与X3 Pro分别通过I\textsuperscript{2}C和UART接入ESP32-S3，再经UDP交给上位机HAL；电机与编码器接入ESP32 V1，底盘通过micro-ROS Agent连接ROS 2。
+
+\subsection{运行结构与维护边界}
+ESP32-S3采集X3 Pro激光雷达和MPU6050数据，通过统一UDP协议交给上位机UDP HAL。ESP32 V1完成底盘闭环控制，通过micro-ROS Agent与ROS 2通信。Agent负责传输桥接，里程计由底盘程序计算。
+
+上位机的一个 \nolinkurl{robot_state_publisher} 从统一URDF/Xacro发布全部固定安装变换。Cartographer读取激光、IMU和底盘里程计，输出动态定位TF；\nolinkurl{occupancy_grid_node}生成 \nolinkurl{/map}。本版定位来源统一采用Cartographer，Nav2启动导航部分，不同时启用另一套定位节点竞争同一段TF。[1][2]
+
+Nav2采用Smac Planner 2D进行全局规划，当前工作区使用MPPI和旋转对齐控制链路，并保留RPP作为可替换方案；按需要加入 \nolinkurl{velocity_smoother}。第5人负责把速度平滑、限速及底盘最终输出接口整合好，第4人负责把同一套参数和启动流程从仿真迁移到实车。DWB或RPP作为后续替换选项，不要求首版同时调通多种控制插件。
+
+\subsection{接口频率与消息约定}
+{\small
+\begin{longtable}{|>{\raggedright\arraybackslash}p{\dimexpr 0.28\linewidth-1.68\tabcolsep-1.12\arrayrulewidth\relax}|>{\raggedright\arraybackslash}p{\dimexpr 0.33\linewidth-1.98\tabcolsep-1.32\arrayrulewidth\relax}|>{\raggedright\arraybackslash}p{\dimexpr 0.39\linewidth-2.34\tabcolsep-1.56\arrayrulewidth\relax}|}
+\hline
+\rowcolor{TableHead} \textbf{接口（参考频率）} & \textbf{类型} & \textbf{提供方与使用方} \\ \hline
+\endfirsthead
+\hline
+\rowcolor{TableHead} \textbf{接口（参考频率）} & \textbf{类型} & \textbf{提供方与使用方} \\ \hline
+\endhead
+\endfoot
+\endlastfoot
+\nolinkurl{/car/scan}\newline 10 Hz & \nolinkurl{sensor_msgs/msg/LaserScan} & UDP HAL发布；Cartographer与已启用雷达输入的代价地图图层使用 \\ \hline
+\nolinkurl{/car/imu/data_raw}\newline 50 Hz & \nolinkurl{sensor_msgs/msg/Imu} & UDP HAL统一发布；IMU模块和标定由第3人负责，第2人负责合入公共通信；Cartographer使用 \\ \hline
+\nolinkurl{/car/chassis/odom}\newline 20 Hz & \nolinkurl{nav_msgs/msg/Odometry} & 底盘经Agent发布；Cartographer使用位姿序列，Nav2控制器和导航器使用速度反馈 \\ \hline
+\nolinkurl{/map}\newline 1 Hz & \nolinkurl{nav_msgs/msg/OccupancyGrid} & \nolinkurl{occupancy_grid_node}发布；全局代价地图静态层使用 \\ \hline
+\nolinkurl{/tf_static}\newline 静态/按需 & \nolinkurl{tf2_msgs/msg/TFMessage} & 上位机唯一的 \nolinkurl{robot_state_publisher} 发布固定安装变换 \\ \hline
+\nolinkurl{/tf}\newline 20 Hz & \nolinkurl{tf2_msgs/msg/TFMessage} & Cartographer发布两段定位变换；各使用方通过tf2查询 \\ \hline
+\nolinkurl{/navigate_to_pose}\newline 按需 & \nolinkurl{nav2_msgs/action/NavigateToPose} & 上层任务节点或RViz2作为客户端；\nolinkurl{bt_navigator}作为服务端 \\ \hline
+\nolinkurl{/compute_path_to_pose}\newline 按需 & \nolinkurl{nav2_msgs/action/ComputePathToPose} & \nolinkurl{bt_navigator}请求；\nolinkurl{planner_server}返回包含Path的规划结果 \\ \hline
+\nolinkurl{/follow_path}\newline 按需/反馈10 Hz & \nolinkurl{nav2_msgs/action/FollowPath} & \nolinkurl{bt_navigator}提交包含Path的请求；\nolinkurl{controller_server}执行并反馈状态 \\ \hline
+\nolinkurl{/car/chassis/cmd_vel}\newline 20 Hz & \nolinkurl{geometry_msgs/msg/Twist} & Nav2最终速度输出经重映射到此接口；ESP32 V1订阅 \\ \hline
+\nolinkurl{/global_costmap/costmap_raw}\newline 发布1 Hz & \nolinkurl{nav2_msgs/msg/Costmap} & 全局代价地图对外话题；\nolinkurl{planner_server}在进程内读取同一代价地图 \\ \hline
+\nolinkurl{/local_costmap/costmap_raw}\newline 发布5 Hz & \nolinkurl{nav2_msgs/msg/Costmap} & 局部代价地图对外话题；\nolinkurl{controller_server}在进程内读取同一代价地图 \\ \hline
+\nolinkurl{/car/reset_odometry}\newline 按需 & \nolinkurl{std_srvs/srv/Trigger} & 项目自定义管理接口，由第3人实现，第4人统筹运行条件，第5人协调导航状态 \\ \hline
+\end{longtable}
+}
+第 5 人应显式配置 Nav2 速度链路的消息类型。本版统一使用 \nolinkurl{geometry_msgs/msg/Twist}，主要字段是 \nolinkurl{linear.x} 和 \nolinkurl{angular.z}；若所选发行版默认使用 \nolinkurl{TwistStamped}，应统一配置或在边界转换，不能让同名接口混用两种类型。ROS 2 发行版、依赖分支、IP 端口和 QoS 在首次联调前统一记录。
+
+\nolinkurl{/global_costmap/costmap_raw} 和 \nolinkurl{/local_costmap/costmap_raw} 的类型是 \nolinkurl{nav2_msgs/msg/Costmap}，用于对外访问；标准 Nav2 的原生规划和控制插件不依靠订阅这两个话题接入代价地图。对应的 \nolinkurl{costmap} 可视化话题使用 \nolinkurl{nav_msgs/msg/OccupancyGrid}。[5]
+
+\subsection{坐标变换与时间同步}
+\begin{center}
+\includegraphics[width=\linewidth,keepaspectratio]{/home/doc049/dev/smartcar_ws/docs/latex/images/坐标系变换.png}
+\captionof{figure}{统一坐标变换关系与发布责任}
+\end{center}
+
+固定安装关系统一写入一份URDF/Xacro，由上位机唯一的 \nolinkurl{robot_state_publisher} 发布；底盘和HAL不重复发布安装TF。Cartographer负责 \nolinkurl{map}\(\rightarrow\)\nolinkurl{odom}\(\rightarrow\)\nolinkurl{base_link} 两段动态TF。原始里程计消息可以使用 \nolinkurl{chassis_odom} 作为参考系，但不因该消息再广播一条 \nolinkurl{chassis_odom}\(\rightarrow\)\nolinkurl{base_link} TF。
+
+micro-ROS链路要单独处理时间同步：MCU采样时钟、Agent主机时钟和ROS时钟可能存在偏移，不能把上位机收包时刻直接当成传感器采样时刻。启动和重连时执行micro-ROS时间同步，记录同步是否成功及估计偏移；UDP包保留采集时间、序号和重启标识，HAL按统一ROS时间发布。同步失败时要有明确诊断，并在验收记录中说明采用的降级时间基准，不能让时间戳倒退或跨传感器无规律跳变。
+
+\section{人员任务与验收}
+{\small
+\begin{longtable}{|>{\raggedright\arraybackslash}p{\dimexpr 0.19\linewidth-1.14\tabcolsep-0.76\arrayrulewidth\relax}|>{\raggedright\arraybackslash}p{\dimexpr 0.43\linewidth-2.58\tabcolsep-1.72\arrayrulewidth\relax}|>{\raggedright\arraybackslash}p{\dimexpr 0.38\linewidth-2.28\tabcolsep-1.52\arrayrulewidth\relax}|}
+\hline
+\rowcolor{TableHead} \textbf{人员} & \textbf{主要负责内容} & \textbf{交接对象} \\ \hline
+\endfirsthead
+\hline
+\rowcolor{TableHead} \textbf{人员} & \textbf{主要负责内容} & \textbf{交接对象} \\ \hline
+\endhead
+\endfoot
+\endlastfoot
+第1人 史子墨 & 底盘驱动、编码器、差速运动学、闭环控制、micro-ROS & 向第3人提供原始里程计，向第4人提供仿真/实车对比数据，向第5人提供运动能力与反馈 \\ \hline
+第2人 张子安琪 & 雷达、ESP32-S3公共程序、UDP协议、上位机HAL & 向第3人提供激光和IMU公共通信链路，向第4、5人提供可回放数据 \\ \hline
+第3人 罗君豪 & IMU、标定、统一机器人模型、静态TF、Cartographer及归零管理 & 向第4人提供可迁移的定位配置，向第5人提供地图、定位TF和外参 \\ \hline
+第4人 张殷瑞 & 项目统筹、接口冻结、Gazebo仿真、sim-to-real迁移、跨模块联调 & 汇总各模块交付，\nolinkurl{sim_to_real} \\ \hline
+第5人 辛祚印 & 两套代价地图、全局规划、局部控制、行为树、目标下发及启动集成 & 向第1人输出速度指令，牵头端到端导航验收 \\ \hline
+\end{longtable}
+}
+\subsection{第1人 史子墨：底盘运动控制}
+\subsubsection*{1. 工作平台}
+ESP32 V1、双轮差速底盘、电机驱动和左右轮编码器；固件使用ESP-IDF与C语言，通信使用micro-ROS的C接口。上位机使用Ubuntu、ROS 2 Jazzy和micro-ROS Agent，提供串口烧录、日志和话题检查环境。
+
+\subsubsection*{2. 工程简述}
+完成ESP32 V1上的电机驱动、编码器读取、左右轮速度闭环和差速解算；接入micro-ROS Wi-Fi通信，提供可供SLAM和Nav2使用的原始Odometry。实现指令限幅、无效指令处理和通信超时停车。
+
+\subsubsection*{3. 输入接口}
+\begin{itemize}
+\item \nolinkurl{/car/chassis/cmd_vel} 的Twist指令，使用车体前进速度和绕z轴角速度。
+\item 左右轮编码器计数、实际轮径、有效轮距、电机驱动引脚和允许转速。
+\end{itemize}
+
+\subsubsection*{4. 输出接口}
+\begin{itemize}
+\item \nolinkurl{/car/chassis/odom}，包含有效位姿、线速度、角速度和时间戳；不发布车体定位TF。
+\end{itemize}
+
+\subsubsection*{5. 交付项}
+\begin{itemize}
+\item 可编译烧录的底盘固件工程、接线表和micro-ROS Agent启动说明。
+\item 轮径、轮距、编码器换算与PID参数表，以及方向、速度闭环和里程计测试记录。
+\end{itemize}
+
+\subsubsection*{6. 大致实现路线}
+MCU定时读取编码器并计算轮速，将车体速度指令换算为左右轮目标速度，再通过PID控制PWM和方向。轮速闭环在MCU本地执行，不依赖Wi-Fi逐次返回控制结果。
+
+根据实测轮速积分原始里程计，同时填充Odometry中的位姿和速度；明确计数方向、时间间隔和协方差。
+
+\Needspace{8\baselineskip}
+\subsubsection*{7. 交付测试项}
+{\small
+\begin{longtable}{|>{\raggedright\arraybackslash}p{\dimexpr 0.15\linewidth-0.9\tabcolsep-0.6\arrayrulewidth\relax}|>{\raggedright\arraybackslash}p{\dimexpr 0.62\linewidth-3.72\tabcolsep-2.48\arrayrulewidth\relax}|>{\raggedright\arraybackslash}p{\dimexpr 0.23\linewidth-1.38\tabcolsep-0.92\arrayrulewidth\relax}|}
+\hline
+\rowcolor{TableHead} \textbf{检查项} & \textbf{操作与通过条件} & \textbf{留存证据} \\ \hline
+\endfirsthead
+\hline
+\rowcolor{TableHead} \textbf{检查项} & \textbf{操作与通过条件} & \textbf{留存证据} \\ \hline
+\endhead
+\endfoot
+\endlastfoot
+方向和解算 & 分别给前进、后退、左转、右转指令，轮子方向与车体响应均正确 & 操作视频与指令记录 \\ \hline
+速度闭环 & 选择两个高于死区的稳定轮速，去掉启动前1 s后，编码器反馈均值与目标差不超过10\% & 左右轮目标与反馈曲线 \\ \hline
+里程计 & 正常网络条件下连续运行5 min，平均频率不低于设定值90\%，时间不倒退；直行1 m累计距离误差建议不超过10\% & rosbag、频率统计及卷尺记录 \\ \hline
+\end{longtable}
+}
+
+\subsection{第2人 张子安琪：雷达与统一通信}
+\subsubsection*{1. 工作平台}
+ESP32-S3、X3 Pro二维激光雷达、Wi-Fi网络与上位机。MCU公共程序使用ESP-IDF和C语言，上位机UDP HAL使用ROS 2节点接入，使用串口工具、UDP收发工具和RViz2检查数据。
+
+\subsubsection*{2. 工程简述}
+完成X3 Pro数据解析、ESP32-S3公共采集程序、Wi-Fi UDP通信和上位机UDP HAL。统一承接激光与IMU数据通路；IMU采集和标定模块由第3人提供，第2人负责合入同一套通信框架。
+
+\subsubsection*{3. 输入接口}
+\begin{itemize}
+\item 雷达串口数据、IMU数据。
+\end{itemize}
+
+\subsubsection*{4. 输出接口}
+\begin{itemize}
+\item \nolinkurl{/car/scan}；\nolinkurl{/car/imu/data_raw}。
+\end{itemize}
+
+\subsubsection*{5. 交付项}
+\begin{itemize}
+\item ESP32-S3公共固件、雷达解析模块和IMU模块接入说明。
+\item UDP协议文档、上位机HAL节点及其启动配置。
+\item 雷达/IMU数据样例、通信统计和本节测试记录。
+\end{itemize}
+
+\subsubsection*{6. 大致实现路线}
+写一套UDP协议,以及上位机HAL节点以发布imu及激光雷达数据
+
+\Needspace{8\baselineskip}
+\subsubsection*{7. 交付测试项}
+{\small
+\begin{longtable}{|>{\raggedright\arraybackslash}p{\dimexpr 0.15\linewidth-0.9\tabcolsep-0.6\arrayrulewidth\relax}|>{\raggedright\arraybackslash}p{\dimexpr 0.62\linewidth-3.72\tabcolsep-2.48\arrayrulewidth\relax}|>{\raggedright\arraybackslash}p{\dimexpr 0.23\linewidth-1.38\tabcolsep-0.92\arrayrulewidth\relax}|}
+\hline
+\rowcolor{TableHead} \textbf{检查项} & \textbf{操作与通过条件} & \textbf{留存证据} \\ \hline
+\endfirsthead
+\hline
+\rowcolor{TableHead} \textbf{检查项} & \textbf{操作与通过条件} & \textbf{留存证据} \\ \hline
+\endhead
+\endfoot
+\endlastfoot
+扫描方向 & RViz中前、左、右障碍与实物对应；一圈扫描的角度、点数及增量关系一致 & RViz截图与摆放照片 \\ \hline
+测距 & 对准平整墙面，在0.5 m、1 m和2 m各采样；中心附近有效点的距离中位数与卷尺读数差建议不超过0.05 m & 原始扫描与测量表 \\ \hline
+稳定通信 & 同一AP、设备与上位机距离不超过3 m，连续运行10 min，无进程崩溃；平均扫描频率不低于设定值90\% & rosbag与协议计数日志 \\ \hline
+异常数据 & 注入丢包、乱序和截断包，能够丢弃无效帧并计数；后续完整帧到达后自动恢复，无需重启HAL & 注入脚本与日志 \\ \hline
+交接完整性 & 第3人可按说明直接订阅扫描和IMU并接入Cartographer；第4人可按说明复现仿真和实车接口；消息单位、frame\_id、时基与约定一致 & 接口检查记录 \\ \hline
+\end{longtable}
+}
+
+\subsection{第3人 罗君豪：IMU、标定与融合建图定位}
+\subsubsection*{1. 工作平台}
+MPU6050与ESP32-S3公共固件；上位机使用ROS 2 Jazzy与Cartographer 2D，由 \nolinkurl{robot_state_publisher} 提供安装TF。IMU模块使用C语言接入第2人的固件，机器人模型使用URDF/Xacro，Cartographer参数使用Lua，数据验证使用RViz2、ROS工具和rosbag。
+
+\subsubsection*{2. 工程简述}
+完成MPU6050采集与标定，维护统一URDF/Xacro和所有固定安装外参，运行上位机唯一的静态TF发布节点。接入Cartographer的激光、IMU和底盘里程计，完成融合定位、栅格建图及地图保存。实现项目归零管理接口，并向第4人和第5人说明定位连续性与导航运行条件。
+
+\subsubsection*{3. 输入接口}
+\begin{itemize}
+\item 第2人提供的 \nolinkurl{/car/scan}和\nolinkurl{/car/imu/data_raw}。
+\item 第1人提供的 \nolinkurl{/car/chassis/odom}。
+\end{itemize}
+
+\subsubsection*{4. 输出接口}
+\begin{itemize}
+\item \nolinkurl{/map} 和两段动态定位TF。
+\end{itemize}
+
+\subsubsection*{5. 交付项}
+\begin{itemize}
+\item MPU6050采集与标定模块、标定结果和统一URDF/Xacro。
+\item 固定安装TF启动配置、Cartographer Lua配置、状态文件和导航栅格地图。
+\item IMU、三路融合、建图定位及归零服务测试记录。
+\end{itemize}
+
+\subsubsection*{6. 大致实现路线}
+完成静止零偏标定、坐标轴与单位核对
+
+URDF以base\_link为根，统一维护chassis\_link、laser\_link和imu\_link的固定关系。上位机一个robot\_state\_publisher负责 \nolinkurl{/tf_static}；底盘和HAL不重复发布安装TF。固定joint启动即可发布，不需要伪造轮关节状态。[1]
+
+用Cartographer进行小车底盘里程计,imu,激光雷达融合.
+
+使用occupancy\_grid\_node生成 \nolinkurl{/map}，同时保存Cartographer状态和供导航使用的栅格地图。
+
+\nolinkurl{/car/reset_odometry} 是需另行适配的管理服务，请求无参数，将当前停车位置设为局部里程计零点、当前车头方向设为零航向，响应通过 \nolinkurl{success} 和 \nolinkurl{message} 报告结果；
+
+\Needspace{8\baselineskip}
+\subsubsection*{7. 交付测试项}
+{\small
+\begin{longtable}{|>{\raggedright\arraybackslash}p{\dimexpr 0.15\linewidth-0.9\tabcolsep-0.6\arrayrulewidth\relax}|>{\raggedright\arraybackslash}p{\dimexpr 0.62\linewidth-3.72\tabcolsep-2.48\arrayrulewidth\relax}|>{\raggedright\arraybackslash}p{\dimexpr 0.23\linewidth-1.38\tabcolsep-0.92\arrayrulewidth\relax}|}
+\hline
+\rowcolor{TableHead} \textbf{检查项} & \textbf{操作与通过条件} & \textbf{留存证据} \\ \hline
+\endfirsthead
+\hline
+\rowcolor{TableHead} \textbf{检查项} & \textbf{操作与通过条件} & \textbf{留存证据} \\ \hline
+\endhead
+\endfoot
+\endlastfoot
+IMU标定 & 静止录制60 s；校正后各轴角速度均值绝对值建议不超过0.02 rad/s，加速度模长处于9.81\(\pm\)0.50 m/s\textsuperscript{2} & 标定前后数据与曲线 \\ \hline
+IMU接口 & 平均频率不低于50 Hz目标的90\%；角速度为rad/s、加速度为m/s\textsuperscript{2}；转动车体时轴向和符号正确 & rosbag与字段核对表 \\ \hline
+静态TF & \nolinkurl{/tf_static}只有一个项目发布节点；三个固定关系与安装测量一致；晚启动的监听者也能查到变换 & 发布者清单、TF树和查询记录 \\ \hline
+三路融合 & 激光、IMU、里程计均被接收，无持续缺失变换或时间倒退错误；停止任一输入时有明确诊断 & 运行日志与数据回放 \\ \hline
+建图与定位 & 在标记起终点的室内闭环路线行驶，总路程约10 m；返回后地图中的起终点位姿差建议不超过0.30 m和10度；重复3次并记录全部结果 & 地图、rosbag、现场标记和误差表 \\ \hline
+连续局部TF & 回环前后分别绘制两段TF；map到odom允许修正，odom到base\_link应保持局部运动连续，不因地图优化直接重置 & 对齐时间轴的TF曲线 \\ \hline
+\end{longtable}
+}
+归零服务单独验收：至少包含一次满足条件的成功归零，以及行驶中、导航未停止、数据无效等拒绝场景。成功后局部位置与航向在约定容差内归零，TF仍只有原定发布者；若同时提供 \nolinkurl{/car/odom}，其位姿与TF一致。仅返回拒绝的占位实现不计作归零功能通过。运动条件、Cartographer运行状态处理、是否保留地图及输入参考基准处理，应在开发前写成明确方案并冻结；未验证成功流程前不在实车导航中启用。
+
+\subsection{第5人 辛祚印：Nav2导航与系统集成}
+\subsubsection*{1. 工作平台}
+上位机ROS 2 Jazzy与Nav2，使用Smac Planner 2D、MPPI、Rotation Shim、速度平滑和碰撞监测组件。参数使用YAML，行为树使用XML，目标下发与验证使用ROS工具和Python；与第4人的Gazebo和实车环境分别联调。
+
+\subsubsection*{2. 工程简述}
+完成Nav2全局规划、局部控制、行为树和目标接口，维护导航参数与总启动文件。负责两套代价地图及其图层配置、速度约束、路径更新处理、取消任务和故障反馈，牵头完成从目标下发到底盘运动的整体验收。
+
+\subsubsection*{3. 输入接口}
+\begin{itemize}
+\item 第3人提供的 \nolinkurl{/map}、动态定位TF、统一机器人模型和静态TF启动配置。
+\item 第2人提供的 \nolinkurl{/car/scan}，以及第1人提供的 \nolinkurl{/car/chassis/odom} 和实测运动限制。
+\item 上层任务节点或RViz2经 \nolinkurl{/navigate_to_pose} 提交的目标位姿，以及已冻结的验收场地和目标点。
+\end{itemize}
+
+\subsubsection*{4. 输出接口}
+\begin{itemize}
+\item \nolinkurl{/navigate_to_pose}、\nolinkurl{/compute_path_to_pose}、\nolinkurl{/follow_path} 三个Action接口及反馈、取消和结果处理。
+\item 最终 \nolinkurl{/car/chassis/cmd_vel}；其消息类型、速度和加速度限制与底盘一致。
+\end{itemize}
+
+\subsubsection*{5. 交付项}
+\begin{itemize}
+\item Nav2参数YAML、行为树XML、导航启动文件及目标下发/取消操作说明。
+\item 代价地图、规划器、控制器和速度输出链路配置。
+\item 到点导航、临时障碍、路径更新、取消和故障测试记录。
+\end{itemize}
+
+\subsubsection*{6. 大致实现路线}
+planner\_server管理map系下的global\_costmap，并加载Smac Planner 2D；controller\_server管理odom系下的local\_costmap，并加载MPPI与旋转对齐控制链路。全局地图叠加静态、障碍和膨胀层；局部采用围绕车体的滚动窗口，优先使用实时激光与膨胀层。两套地图的范围、分辨率、车身轮廓及频率根据真实底盘配置。
+
+bt\_navigator接收NavigateToPose目标，调用ComputePathToPose取得Path，再通过FollowPath交给控制器。bt\_navigator和controller\_server均将 \nolinkurl{odom_topic} 指向 \nolinkurl{/car/chassis/odom}。服务器内部使用各自代价地图，costmap\_raw只作为对外接口。[5][6]
+
+首版先完成旋转对齐、MPPI跟踪与前向碰撞检查，再配合速度平滑、路径守卫和全局重规划处理新障碍。新Path到来时应保证速度变化符合配置约束；接续不可行时减速或停车，不锁定已经出现障碍的旧路径。局部控制器不是全局绕行规划器；需要替换RPP、DWB或MPPI时，必须重新冻结参数并验收。[7]
+
+\Needspace{8\baselineskip}
+\subsubsection*{7. 交付测试项}
+{\small
+\begin{longtable}{|>{\raggedright\arraybackslash}p{\dimexpr 0.15\linewidth-0.9\tabcolsep-0.6\arrayrulewidth\relax}|>{\raggedright\arraybackslash}p{\dimexpr 0.62\linewidth-3.72\tabcolsep-2.48\arrayrulewidth\relax}|>{\raggedright\arraybackslash}p{\dimexpr 0.23\linewidth-1.38\tabcolsep-0.92\arrayrulewidth\relax}|}
+\hline
+\rowcolor{TableHead} \textbf{检查项} & \textbf{操作与通过条件} & \textbf{留存证据} \\ \hline
+\endfirsthead
+\hline
+\rowcolor{TableHead} \textbf{检查项} & \textbf{操作与通过条件} & \textbf{留存证据} \\ \hline
+\endhead
+\endfoot
+\endlastfoot
+接口与启动 & 按一份操作说明启动；三条Action可用，TF、地图和传感器就绪后进入导航；重复冷启动3次 & 启动日志与Action清单 \\ \hline
+两套代价地图 & 全局覆盖规划区域，局部窗口随车移动；放置与移走箱子后能标记、清除障碍；变化到地图更新建议不超过0.50 s & RViz录像及时间记录 \\ \hline
+到点导航 & 预设5个可达目标，各测试2次；建议成功不少于9次，全部无碰撞；成功时位置误差不超过0.20 m、朝向误差不超过10度 & 10次结果表与实测记录 \\ \hline
+近处新障碍 & 行驶途中加入可检测障碍，控制器及时减速或停车；绕行通道存在时通过重规划或所选控制器继续，受阻时明确报告 & 局部地图、速度曲线和录像 \\ \hline
+路径更新 & 在有两条可行路线的场景触发重规划；线速度、角速度和加减速度均不超冻结限制，无持续左右摆动或追逐身后点 & 新旧Path与速度时间曲线 \\ \hline
+取消和故障 & 取消目标、目标不可达、停止扫描、停止里程计、停止定位TF，逐项测试；任务返回明确状态，车体停车且不继续执行陈旧任务 & Action结果、日志及停车时间 \\ \hline
+\end{longtable}
+}
+
+\subsection{当前工作区代码规范}
+本节以 \nolinkurl{/home/doc049/dev/smartcar_ws} 当前目录为准，适用于后续新增节点、配置和验证脚本。代码、配置、启动文件和测试都要能在干净的工作区中按 README 的命令复现；临时调参可以放在个人记录中，但通过验收的参数必须回写到包内配置并说明原因。
+
+{\setlength{\emergencystretch}{4em}
+\begin{enumerate}
+\item \textbf{包与目录。} ROS 2 包统一使用 \nolinkurl{smartcar_<domain>} 命名。Python 节点放在同名 Python 子包中，入口在 \nolinkurl{setup.py} 的 \nolinkurl{console_scripts}；C++ 节点的头文件放在 \nolinkurl{include/<package>/}，实现放在 \nolinkurl{src/}，通过 \nolinkurl{CMakeLists.txt} 安装。启动文件放在 \nolinkurl{launch/}，参数放在 \nolinkurl{config/}，URDF/Xacro 放在 \nolinkurl{urdf/}，行为树放在 \nolinkurl{behavior_trees/}。
+\item \textbf{命名与接口。} 文件、函数、参数、话题和服务使用小写蛇形命名；类名使用首字母大写的单词组合；节点名和frame名不带开头斜杠。公共接口以 \nolinkurl{/car/scan}、\nolinkurl{/car/imu/data_raw}、\nolinkurl{/car/chassis/odom}、\nolinkurl{/car/chassis/cmd_vel} 和 \nolinkurl{/map} 为准，变更必须同步更新启动文件、参数、文档和验证脚本。
+\item \textbf{消息与TF。} 当前Nav2参数显式设置 \nolinkurl{enable_stamped_cmd_vel: false}，速度链路使用 \nolinkurl{geometry_msgs/msg/Twist}。固定安装TF只由统一的 \nolinkurl{robot_state_publisher} 发布，动态定位TF只由Cartographer发布。当前工作区的 Cartographer Lua 使用 \nolinkurl{odom_frame = "chassis_odom"}，运行时链路是 \nolinkurl{map -> chassis_odom -> base_link}；若接口冻结要改为 \nolinkurl{map -> odom -> base_link}，必须一次性修改配置、测试和所有文档，不能混用两套名称。
+\item \textbf{参数与QoS。} 节点启动时声明参数并给出安全默认值；运行时可调参数集中在 YAML 或 Lua，不把关键常数散落在回调函数中。传感器使用 SensorData QoS，静态地图或需要晚加入者收到的代价地图使用与用途匹配的持久性和队列深度；QoS 变更要在接口冻结表中记录。
+\item \textbf{Python与C++实现。} Python 文件包含模块说明，使用四空格缩进、\nolinkurl{snake_case} 和显式的 \nolinkurl{main()}；节点退出时释放实体并关闭 rclpy。C++ 使用 RAII、\nolinkurl{const} 和明确的智能指针类型，回调只做必要的数据转换，日志使用 \nolinkurl{RCLCPP_*}，不得用标准输出替代节点日志。新增订阅、发布和服务时同时检查空指针、时间戳、消息单位和异常输入。
+\item \textbf{启动与仿真。} 总启动流程通过 \nolinkurl{smartcar_bringup} 组织，仿真相关内容放在 \nolinkurl{smartcar_gazebo}、\nolinkurl{smartcar_sim_io} 和 \nolinkurl{smartcar_description}；Gazebo 私有里程计和TF不得绕过Cartographer成为第二套动态定位。仿真和实车共用公开话题、frame和参数名，差异只通过启动参数或明确的适配节点表达。
+\item \textbf{验证与测试。} 修改节点或配置后至少执行 \nolinkurl{colcon build --symlink-install} 和 \nolinkurl{python3 scripts/validate_system.py}，再按改动范围运行验证脚本或 \nolinkurl{colcon test}。
+运行时留存话题频率、Action结果、TF查询和必要的rosbag；测试脚本必须报告明确的通过/失败条件，不能只打印一段无结论的日志。
+\item \textbf{版本与提交。} 提交前删除个人临时文件，禁止把 \nolinkurl{build/}、\nolinkurl{install/}、\nolinkurl{log/}、缓存、生成地图和未审查的rosbag加入版本库。每次接口或参数变化在提交说明中写明影响的话题、TF、消息类型、参考频率和验收命令；修复问题时保留失败证据和复测结果。
+\end{enumerate}
+}
+
+\Needspace{14\baselineskip}
+\subsection{官方接口依据}
+\begin{itemize}
+\item \href{https://github.com/ros/robot_state_publisher/tree/jazzy}{1 Robot State Publisher固定关节与静态TF}
+\item \href{https://google-cartographer-ros.readthedocs.io/en/latest/ros_api.html}{2 Cartographer输入输出与栅格地图节点}
+\item \href{https://github.com/ros2/cartographer_ros/blob/ros2/cartographer_ros/src/sensor_bridge.cpp}{3 Cartographer ROS 2传感器适配与跟踪坐标系要求}
+\item \href{https://github.com/ros2/common_interfaces/blob/jazzy/sensor_msgs/msg/Imu.msg}{4 sensor\_msgs Imu单位与无姿态估计的标记}
+\item \href{https://github.com/ros-navigation/navigation2/blob/jazzy/nav2_planner/src/planner_server.cpp}{5 Nav2规划服务器的代价地图管理}
+\item \href{https://github.com/ros-navigation/navigation2/blob/jazzy/nav2_msgs/action/NavigateToPose.action}{6 NavigateToPose接口} 与 \href{https://github.com/ros-navigation/navigation2/blob/jazzy/nav2_msgs/action/FollowPath.action}{FollowPath接口}
+\item \href{https://docs.nav2.org/jazzy/configuration_and_development/configuration_guide/controller_plugins/configuring_regulated_pp/}{7 Regulated Pure Pursuit控制器}
+\end{itemize}
+\end{document}
