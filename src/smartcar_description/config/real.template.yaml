@@ -1,0 +1,38 @@
+# Replace nominal measurements and provenance before setting status: measured.
+metadata:
+  robot_id: car01
+  calibration_version: UNMEASURED
+  status: unmeasured
+  measurement_method: REQUIRED
+  source_data: REQUIRED
+# Physical geometry only. Effective odometry parameters belong to chassis firmware.
+model:
+  wheel_radius: 0.024
+  wheel_separation: 0.133
+  wheel_width: 0.018
+  footprint_radius: 0.13
+  body_length: 0.180
+  body_width: 0.110
+  body_height: 0.020
+  body_mass: 0.80
+  body_z: 0.045
+  inertia_xx: 0.000845
+  inertia_yy: 0.002200
+  inertia_zz: 0.002951
+  caster_clearance: 0.0005
+  chassis_xyz: "0 0 0"
+  chassis_rpy: "0 0 0"
+  laser_xyz: "0 0 0.110"
+  laser_rpy: "0 0 0"
+  imu_xyz: "0 0 0.057"
+  imu_rpy: "0 0 0"
+calibration_ownership:
+  installation_extrinsics: robot_state_publisher
+  effective_wheel_geometry_and_encoder_conversion: chassis_firmware
+  imu_bias_scale_and_axis_conversion: esp32_s3_imu_module
+# Provenance only: not applied again by the ROS model or HAL template.
+device_calibration:
+  chassis_firmware_version: REQUIRED
+  chassis_calibration_version: REQUIRED
+  imu_firmware_version: REQUIRED
+  imu_calibration_version: REQUIRED

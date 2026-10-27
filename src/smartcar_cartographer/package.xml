@@ -7,6 +7,7 @@
   <license>Apache-2.0</license>
   <buildtool_depend>ament_python</buildtool_depend>
   <exec_depend>launch</exec_depend><exec_depend>launch_ros</exec_depend>
+  <exec_depend>ament_index_python</exec_depend>
   <exec_depend>cartographer_ros</exec_depend><exec_depend>cartographer</exec_depend>
   <exec_depend>sensor_msgs</exec_depend><exec_depend>nav_msgs</exec_depend>
   <export><build_type>ament_python</build_type></export>

@@ -1,0 +1,32 @@
+Version 0.5.0 source validation — 2026-10-26
+
+HARDWARE CONFIGURATION PROVIDED BY USER
+X3PRO Tx -> GPIO44, common ground; original PWM retained.
+MPU6050 SCL -> GPIO21, SDA -> GPIO47; INT and other signal pins unconnected.
+ROS target: teammate Ubuntu 24.04 / ROS 2 Jazzy.
+Local receiver network settings changed through a hidden password dialog.
+No password was printed or added to the shareable source package.
+
+COMPLETED SOFTWARE CHECKS
+- ESP-IDF v6.1 / ESP32-S3 build succeeds with IMU enabled and independent synthetic
+  network configuration in work/. Real user sdkconfig preserved separately.
+- Final linker map confirms smartcar_main.c calls mpu6050_start/time_sync_start,
+  with complete capture_task, i2c_master_transmit_receive, encoder and sync task.
+- I2C failure timeout is 30 ms, avoiding a zero-tick wait at default 100 Hz.
+- Portable C parser/encoders: strict warnings + ASAN/UBSAN pass.
+- Protocol/clock unit tests: 36 pass.
+- ROS scan/time core + mocked message interface tests: 19 pass. These do NOT run
+  real rclpy, DDS, ROS launch, Cartographer or RViz.
+- Package metadata, Python AST, XML and YAML validated; three protocol modules
+  in ROS package are byte-identical to the Mac tools versions.
+- Actual C encoder + localhost UDP simulated sender: 175 IMU, 4 heartbeat,
+  1 lidar messages received/recorded. All heartbeat ACKs match; sensors not ACKed.
+  Bad CRC/truncated input rejected; valid traffic recovers. 8 SCQ1/SCR1 replies;
+  software mapping locks within 4 s after select waits on both sockets.
+- Former heartbeat/lidar mixed localhost regression passes.
+
+LIMITS AND PENDING REAL-HARDWARE ACCEPTANCE
+No firmware was flashed automatically during this source validation.
+No actual MPU6050 I2C capture, radio time accuracy, Ubuntu ROS runtime or 10-minute
+acceptance is claimed. IMU polling/DLPF and lidar UART backprojection remain
+estimated physical timing. See TIMING.md for source assumptions and calibration.

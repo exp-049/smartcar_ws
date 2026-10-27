@@ -51,6 +51,10 @@ controller_server:
       model_dt: 0.05
       # Keep the final command caps in velocity_smoother, while giving the
       # optimizer enough authority to leave its zero-speed initial sequence.
+      # Jazzy publishes the selected MPPI trajectory as a nav_msgs/Path only
+      # when visualization is enabled. RViz subscribes to that path, not the
+      # candidate MarkerArray, so candidate visualization markers are skipped.
+      visualize: true
       batch_size: 1000
       ax_max: 1.0
       ax_min: -1.0
@@ -70,7 +74,6 @@ controller_server:
       temperature: 0.3
       gamma: 0.015
       motion_model: DiffDrive
-      visualize: false
       regenerate_noises: true
       critics: [ConstraintCritic, CostCritic, GoalCritic, GoalAngleCritic, PathAlignCritic, PathFollowCritic, PathAngleCritic, PreferForwardCritic]
       ConstraintCritic: {enabled: true, cost_power: 1, cost_weight: 4.0}
@@ -154,7 +157,7 @@ global_costmap:
         # Explicitly include the lidar plane (0.11 m); Jazzy's source default
         # max_obstacle_height=0.0 otherwise discards every projected return.
         scan: {topic: /car/scan, data_type: LaserScan, clearing: true, marking: true, min_obstacle_height: -0.10, max_obstacle_height: 0.50, raytrace_max_range: 8.0, raytrace_min_range: 0.12, obstacle_max_range: 8.0, obstacle_min_range: 0.12, inf_is_valid: true}
-      inflation_layer: {plugin: nav2_costmap_2d::InflationLayer, cost_scaling_factor: 5.0, inflation_radius: 0.45}
+      inflation_layer: {plugin: nav2_costmap_2d::InflationLayer, cost_scaling_factor: 5.0, inflation_radius: 0.26}
 
 local_costmap:
   local_costmap:
@@ -181,7 +184,7 @@ local_costmap:
         enabled: true
         observation_sources: scan
         scan: {topic: /car/scan, data_type: LaserScan, clearing: true, marking: true, min_obstacle_height: -0.10, max_obstacle_height: 0.50, raytrace_max_range: 8.0, raytrace_min_range: 0.12, obstacle_max_range: 8.0, obstacle_min_range: 0.12, inf_is_valid: true}
-      inflation_layer: {plugin: nav2_costmap_2d::InflationLayer, cost_scaling_factor: 5.0, inflation_radius: 0.45}
+      inflation_layer: {plugin: nav2_costmap_2d::InflationLayer, cost_scaling_factor: 5.0, inflation_radius: 0.26}
 
 behavior_server:
   ros__parameters:
@@ -227,7 +230,7 @@ collision_monitor:
     base_frame_id: base_link
     odom_frame_id: chassis_odom
     cmd_vel_in_topic: cmd_vel_smoothed
-    cmd_vel_out_topic: /car/chassis/cmd_vel
+    cmd_vel_out_topic: /car/cmd_vel_checked
     state_topic: collision_monitor_state
     transform_tolerance: 0.2
     source_timeout: 0.5
@@ -250,3 +253,15 @@ waypoint_follower:
     stop_on_failure: false
     waypoint_task_executor_plugin: wait_at_waypoint
     wait_at_waypoint: {plugin: nav2_waypoint_follower::WaitAtWaypoint, enabled: true, waypoint_pause_duration: 0}
+
+# Sole publisher of the public chassis command, shared by sim and real.
+command_guard:
+  ros__parameters:
+    use_sim_time: true
+    input_topic: /car/cmd_vel_checked
+    output_topic: /car/chassis/cmd_vel
+    timeout_sec: 0.5
+    sensor_timeout_sec: 0.5
+    transform_timeout_sec: 0.5
+    max_linear_velocity: 0.20
+    max_angular_velocity: 1.20

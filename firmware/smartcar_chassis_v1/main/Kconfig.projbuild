@@ -1,0 +1,20 @@
+menu "Smartcar chassis"
+
+config MICRO_ROS_APP_STACK
+    int "micro-ROS task stack (bytes)"
+    range 12000 32000
+    default 18000
+
+config MICRO_ROS_APP_TASK_PRIO
+    int "micro-ROS task priority"
+    range 1 19
+    default 8
+
+config SMARTCAR_CHASSIS_MICROROS_SERIAL
+    bool "Run the micro-ROS serial client"
+    default y
+    help
+        Use UART0 exclusively for micro-ROS XRCE-DDS. Disable the serial CLI and
+        JSON console because both share the ESP32 USB-UART connection.
+
+endmenu

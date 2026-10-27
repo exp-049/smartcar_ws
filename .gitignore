@@ -7,8 +7,15 @@
 !/README.md
 !/五人分工与验收方案.pdf
 
+# Keep the ESP-IDF chassis firmware sources; omit generated build and managed dependencies.
+!/firmware/
+/firmware/smartcar_chassis_v1/build/
+/firmware/smartcar_chassis_v1/managed_components/
+/firmware/smartcar_chassis_v1/sdkconfig
+
 # Keep documentation sources, figures, build configuration and released PDFs.
 !/docs/
+!/thirdparty/
 /docs/**/.build/
 
 # LaTeX intermediate files; keep .tex, images, .drawio, .latexmkrc and final PDFs.

@@ -1,0 +1,502 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>实时雷达图</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --page: #f5f6f7;
+      --surface: #ffffff;
+      --ink: #19252e;
+      --muted: #67757f;
+      --border: #dce2e6;
+      --grid: #e9edef;
+      --axis: #a7b3bb;
+      --point: #087e83;
+      --accent: #087e83;
+      --good: #087e69;
+      --warning: #966212;
+      --bad: #c13737;
+      --bad-bg: #fff0ef;
+      --tooltip-bg: #18252e;
+      --tooltip-ink: #ffffff;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --page: #11171c;
+        --surface: #182127;
+        --ink: #e5edf2;
+        --muted: #96a7b2;
+        --border: #303e47;
+        --grid: #26333c;
+        --axis: #5e7380;
+        --point: #67d9cd;
+        --accent: #67d9cd;
+        --good: #67d9b4;
+        --warning: #e9bb65;
+        --bad: #ff9290;
+        --bad-bg: #382527;
+        --tooltip-bg: #e5edf2;
+        --tooltip-ink: #18252e;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--page);
+      color: var(--ink);
+      font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    main { width: min(100% - 40px, 880px); margin: 32px auto 24px; }
+    header { margin-bottom: 18px; }
+    .heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    h1 { margin: 0; font-size: 26px; font-weight: 650; letter-spacing: -0.03em; }
+    .health { display: inline-flex; align-items: center; gap: 7px; color: var(--muted); white-space: nowrap; }
+    .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex: 0 0 auto; }
+    .health[data-level="good"] { color: var(--good); }
+    .health[data-level="warning"] { color: var(--warning); }
+    .health[data-level="bad"] { color: var(--bad); }
+    .device { margin: 5px 0 0; color: var(--muted); overflow-wrap: anywhere; }
+    .toolbar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; }
+    .controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    label { display: inline-flex; align-items: center; gap: 7px; color: var(--muted); }
+    select, button {
+      min-height: 36px;
+      padding: 6px 11px;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      background: var(--surface);
+      color: var(--ink);
+      font: inherit;
+    }
+    button { cursor: pointer; }
+    button:hover, select:hover { border-color: var(--axis); }
+    button:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+    button[aria-pressed="true"] { color: var(--warning); border-color: var(--warning); }
+    .summary { color: var(--muted); font-variant-numeric: tabular-nums; margin: 0 0 10px; min-height: 21px; }
+    .notice {
+      padding: 10px 13px;
+      margin: 0 0 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--muted);
+      background: var(--surface);
+    }
+    .notice[data-level="bad"] { color: var(--bad); background: var(--bad-bg); border-color: var(--bad); }
+    .notice[hidden] { display: none; }
+    .plot {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 1;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--surface);
+    }
+    canvas { display: block; width: 100%; height: 100%; touch-action: pan-y; }
+    .empty {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 5px;
+      padding: 32px;
+      text-align: center;
+      pointer-events: none;
+    }
+    .empty[hidden] { display: none; }
+    .empty strong { font-size: 19px; font-weight: 600; background: var(--surface); padding: 2px 8px; border-radius: 4px; }
+    .empty span { max-width: 290px; color: var(--muted); background: var(--surface); padding: 1px 6px; border-radius: 4px; }
+    .image-badge {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      color: var(--warning);
+      background: var(--surface);
+      border: 1px solid currentColor;
+      border-radius: 6px;
+      padding: 4px 8px;
+      font-size: 12px;
+      pointer-events: none;
+    }
+    .image-badge[data-level="bad"] { color: var(--bad); }
+    .image-badge[hidden] { display: none; }
+    .tooltip {
+      position: absolute;
+      max-width: calc(100% - 16px);
+      padding: 6px 9px;
+      border-radius: 6px;
+      background: var(--tooltip-bg);
+      color: var(--tooltip-ink);
+      font-size: 12px;
+      pointer-events: none;
+      font-variant-numeric: tabular-nums;
+    }
+    .tooltip[hidden] { display: none; }
+    .underplot { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 4px 12px; margin: 8px 0 0; color: var(--muted); font-size: 12px; }
+    .sensor-line { margin: 14px 0 0; color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+    .sensor-line[hidden] { display: none; }
+    .sync-line { margin: 4px 0 0; color: var(--muted); font-size: 12px; }
+    footer { border-top: 1px solid var(--border); margin-top: 18px; padding-top: 12px; color: var(--muted); font-size: 12px; }
+    footer p { margin: 0; }
+    @media (max-width: 480px) {
+      main { width: calc(100% - 24px); margin-top: 18px; }
+      h1 { font-size: 23px; }
+      .health { font-size: 12px; }
+      .controls { gap: 8px; }
+      .summary { font-size: 12px; }
+      .plot { border-radius: 9px; }
+      .image-badge { top: 8px; right: 8px; }
+      .empty { padding: 25px; }
+      .empty strong { font-size: 17px; }
+      .empty span { font-size: 12px; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div class="heading">
+        <h1>实时雷达图</h1>
+        <span class="health" id="health" data-level="waiting" role="status">
+          <span class="dot" aria-hidden="true"></span><span id="health-text">等待数据</span>
+        </span>
+      </div>
+      <p class="device" id="device">设备 IP：等待发现</p>
+    </header>
+
+    <div class="toolbar">
+      <div class="controls">
+        <label for="range">显示半径
+          <select id="range">
+            <option value="1">1 米</option>
+            <option value="2">2 米</option>
+            <option value="4" selected>4 米</option>
+            <option value="8">8 米</option>
+          </select>
+        </label>
+        <button type="button" id="pause" aria-pressed="false">暂停图像</button>
+      </div>
+    </div>
+    <p class="summary" id="summary">尚无完整扫描</p>
+    <p class="notice" id="notice" hidden></p>
+
+    <div class="plot" id="plot">
+      <canvas id="canvas" role="img" aria-label="雷达平面点图：前方正 X 朝上，左侧正 Y 朝左，单位米；只显示最近一圈扫描。">
+        需要支持 Canvas 的浏览器才能显示雷达图。
+      </canvas>
+      <div class="empty" id="empty">
+        <strong id="empty-title">等待完整扫描</strong>
+        <span id="empty-detail">收到雷达数据并组成一圈后，图像会自动显示。</span>
+      </div>
+      <span class="image-badge" id="image-badge" hidden></span>
+      <span class="tooltip" id="tooltip" hidden></span>
+    </div>
+    <div class="underplot">
+      <span>前 +X ↑ &nbsp; 左 +Y ← &nbsp; 单位：米</span>
+      <span id="scan-label">仅显示最新一圈</span>
+    </div>
+    <p class="sensor-line" id="imu-line" hidden></p>
+    <p class="sync-line" id="sync-line" hidden></p>
+    <footer>
+      <p>前向按雷达零位，整车外参待核对。暂停图像时仍继续接收数据。</p>
+    </footer>
+  </main>
+  <script>
+    'use strict';
+
+    const elements = Object.fromEntries([
+      'health', 'health-text', 'device', 'range', 'pause', 'summary', 'notice',
+      'plot', 'canvas', 'empty', 'empty-title', 'empty-detail', 'image-badge',
+      'tooltip', 'scan-label', 'imu-line', 'sync-line'
+    ].map(id => [id, document.getElementById(id)]));
+    const ctx = elements.canvas.getContext('2d');
+    let state = null;
+    let stateReceivedAt = 0;
+    let displayedScan = null;
+    let paused = false;
+    let fetchFailed = false;
+    let radius = 4;
+    let width = 1;
+    let height = 1;
+    let projectedPoints = [];
+    let pointer = null;
+    let pollTimer = null;
+    let disposed = false;
+
+    const finite = value => typeof value === 'number' && Number.isFinite(value);
+    const setText = (element, text) => {
+      if (element.textContent !== text) element.textContent = text;
+    };
+    const formatAge = age => Number.isFinite(age) ? `${age.toFixed(1)} 秒` : '未知';
+    const ageOf = value => finite(value) && value >= 0
+      ? value + Math.max(0, performance.now() - stateReceivedAt) / 1000
+      : Infinity;
+
+    function normalizeScan(scan) {
+      if (!scan || typeof scan !== 'object' || !Array.isArray(scan.points)) return null;
+      const points = scan.points.filter(point => Array.isArray(point) &&
+        point.length >= 2 && finite(point[0]) && finite(point[1]));
+      return { ...scan, points };
+    }
+
+    function updateStatus() {
+      const scan = state && state.scan;
+      const scanAge = scan ? ageOf(scan.age_s) : Infinity;
+      const packetAge = state ? ageOf(state.lidar_packet_age_s) : Infinity;
+      const stale = scan ? scanAge > 1 : Number.isFinite(packetAge) && packetAge > 1;
+      const hasPackets = Number.isFinite(packetAge);
+      let health = '等待数据';
+      let level = 'waiting';
+      let notice = '';
+      let noticeLevel = '';
+      if (stale) {
+        health = '数据中断';
+        level = 'bad';
+        notice = scan
+          ? '数据中断：超过 1 秒没有新的完整扫描，图中保留最近一圈。'
+          : '数据中断：超过 1 秒没有收到雷达数据，仍在等待完整扫描。';
+        noticeLevel = 'bad';
+      } else if (scan) {
+        health = '接收中';
+        level = 'good';
+      } else if (hasPackets) {
+        health = '等待组圈';
+        level = 'warning';
+        notice = '已收到雷达数据包，正在等待组成完整一圈。';
+      } else if (fetchFailed) {
+        health = '连接中断';
+        level = 'bad';
+        notice = '本地查看服务暂未响应，正在自动重试。';
+        noticeLevel = 'bad';
+      }
+      elements.health.dataset.level = level;
+      setText(elements['health-text'], health);
+      setText(elements.device, state && typeof state.device_ip === 'string'
+        ? `设备 IP：${state.device_ip}` : '设备 IP：等待发现');
+      elements.notice.hidden = !notice;
+      elements.notice.dataset.level = noticeLevel;
+      setText(elements.notice, notice);
+
+      if (scan) {
+        const validPoints = finite(scan.valid_points) ? scan.valid_points : scan.points.length;
+        const hz = finite(scan.scan_hz) && scan.scan_hz >= 0 ? scan.scan_hz.toFixed(1) : '—';
+        setText(elements.summary,
+          `${paused ? '接收：' : ''}${validPoints} 个有效点 · ${hz} Hz · 数据年龄 ${formatAge(scanAge)}`);
+      } else {
+        setText(elements.summary, hasPackets
+          ? `尚无完整扫描 · 最近雷达包 ${formatAge(packetAge)}前` : '尚无完整扫描');
+      }
+
+      elements.empty.hidden = displayedScan !== null;
+      if (displayedScan === null) {
+        setText(elements['empty-title'], paused ? '图像已暂停' : '等待完整扫描');
+        setText(elements['empty-detail'], paused
+          ? '接收仍在继续，点击“继续显示”查看最新一圈。'
+          : hasPackets ? '已收到数据包，正在等待组圈。' : '收到雷达数据并组成一圈后，图像会自动显示。');
+      }
+      const badge = paused ? '图像已暂停' : stale && displayedScan ? '数据中断 · 保留最近一圈' : '';
+      elements['image-badge'].hidden = !badge;
+      elements['image-badge'].dataset.level = !paused && stale ? 'bad' : 'warning';
+      setText(elements['image-badge'], badge);
+      setText(elements['scan-label'], displayedScan && finite(displayedScan.seq)
+        ? `${paused ? '暂停于' : '最新一圈'} #${displayedScan.seq}` : '仅显示最新一圈');
+
+      const imu = state && state.imu;
+      elements['imu-line'].hidden = !imu;
+      if (imu) {
+        const parts = [];
+        if (finite(imu.temperature_c)) parts.push(`${imu.temperature_c.toFixed(1)} °C`);
+        if (Array.isArray(imu.gyro) && finite(imu.gyro[2])) {
+          parts.push(`Z 轴角速度 ${imu.gyro[2].toFixed(3)} rad/s`);
+        }
+        setText(elements['imu-line'], `IMU：${parts.length ? parts.join(' · ') : '已收到数据'}${ageOf(imu.age_s) > 1 ? '（数据中断）' : ''}`);
+      }
+      const sync = state && state.sync;
+      elements['sync-line'].hidden = !sync;
+      if (sync) setText(elements['sync-line'], `时钟对齐：${sync.locked === true ? '已锁定' : '等待锁定'}`);
+      draw(stale);
+    }
+
+    function resizeCanvas() {
+      const bounds = elements.plot.getBoundingClientRect();
+      width = Math.max(1, elements.canvas.clientWidth || bounds.width);
+      height = Math.max(1, elements.canvas.clientHeight || bounds.height);
+      const dpr = window.devicePixelRatio || 1;
+      elements.canvas.width = Math.round(width * dpr);
+      elements.canvas.height = Math.round(height * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      updateStatus();
+    }
+
+    function draw(stale) {
+      if (!ctx) return;
+      const style = getComputedStyle(document.documentElement);
+      const color = name => style.getPropertyValue(name).trim();
+      const cx = width / 2;
+      const cy = height / 2;
+      const edge = width < 380 ? 25 : 38;
+      const scale = Math.max(1, (Math.min(width, height) / 2 - edge)) / radius;
+      const limit = radius * scale;
+      const step = radius / 4;
+      ctx.clearRect(0, 0, width, height);
+      ctx.lineWidth = 1;
+      ctx.font = `${width < 380 ? 10 : 11}px -apple-system, BlinkMacSystemFont, sans-serif`;
+      ctx.textBaseline = 'middle';
+
+      // Grid and labels are in metres. Screen right is -Y; screen up is +X.
+      ctx.strokeStyle = color('--grid');
+      for (let tick = -4; tick <= 4; tick++) {
+        const offset = tick * step * scale;
+        ctx.beginPath();
+        ctx.moveTo(cx + offset, cy - limit);
+        ctx.lineTo(cx + offset, cy + limit);
+        ctx.moveTo(cx - limit, cy + offset);
+        ctx.lineTo(cx + limit, cy + offset);
+        ctx.stroke();
+      }
+      ctx.fillStyle = color('--muted');
+      for (let ring = 1; ring <= 4; ring++) {
+        const distance = ring * step;
+        ctx.beginPath();
+        ctx.arc(cx, cy, distance * scale, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.textAlign = 'left';
+        const label = `${Number(distance.toFixed(2))} m`;
+        ctx.fillText(label, cx + Math.cos(-Math.PI / 4) * distance * scale + 4,
+          cy + Math.sin(-Math.PI / 4) * distance * scale - 4);
+      }
+      ctx.strokeStyle = color('--axis');
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - limit);
+      ctx.lineTo(cx, cy + limit);
+      ctx.moveTo(cx - limit, cy);
+      ctx.lineTo(cx + limit, cy);
+      ctx.stroke();
+      ctx.textAlign = 'center';
+      ctx.fillText('前 +X', cx, Math.max(11, cy - limit - 14));
+      ctx.textAlign = 'left';
+      ctx.fillText('左 +Y', Math.max(5, cx - limit + 5), cy + 14);
+
+      projectedPoints = [];
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(cx, cy, limit, 0, Math.PI * 2);
+      ctx.clip();
+      ctx.fillStyle = color('--point');
+      ctx.globalAlpha = stale && !paused ? 0.45 : 0.9;
+      const dotRadius = width < 380 ? 1.35 : 1.7;
+      if (displayedScan) {
+        for (const point of displayedScan.points) {
+          const [x, y] = point;
+          if (Math.hypot(x, y) > radius) continue;
+          const px = cx - y * scale;
+          const py = cy - x * scale;
+          ctx.beginPath();
+          ctx.arc(px, py, dotRadius, 0, Math.PI * 2);
+          ctx.fill();
+          projectedPoints.push({ x, y, px, py });
+        }
+      }
+      ctx.restore();
+
+      // The fixed centre marker indicates the lidar origin and zero direction.
+      ctx.fillStyle = color('--ink');
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - 6);
+      ctx.lineTo(cx - 4, cy + 4);
+      ctx.lineTo(cx + 4, cy + 4);
+      ctx.closePath();
+      ctx.fill();
+      showTooltip();
+    }
+
+    function showTooltip() {
+      let nearest = null;
+      let nearestSquared = 100;
+      if (pointer) {
+        for (const point of projectedPoints) {
+          const squared = (point.px - pointer.x) ** 2 + (point.py - pointer.y) ** 2;
+          if (squared < nearestSquared) {
+            nearest = point;
+            nearestSquared = squared;
+          }
+        }
+      }
+      elements.tooltip.hidden = nearest === null;
+      if (!nearest) return;
+      setText(elements.tooltip,
+        `X ${nearest.x.toFixed(2)} m · Y ${nearest.y.toFixed(2)} m · 距离 ${Math.hypot(nearest.x, nearest.y).toFixed(2)} m`);
+      const left = Math.max(8, Math.min(nearest.px + 12, width - elements.tooltip.offsetWidth - 8));
+      const top = Math.max(8, Math.min(nearest.py + 12, height - elements.tooltip.offsetHeight - 8));
+      elements.tooltip.style.left = `${left}px`;
+      elements.tooltip.style.top = `${top}px`;
+    }
+
+    // Each next poll is scheduled only after the current request finishes.
+    // The independent UI timer keeps data ages honest even during a fetch stall.
+    async function pollState() {
+      if (disposed) return;
+      const started = performance.now();
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 1500);
+      try {
+        const response = await fetch('/state', { cache: 'no-store', signal: controller.signal });
+        if (!response.ok) throw new Error('state unavailable');
+        const incoming = await response.json();
+        if (!incoming || typeof incoming !== 'object' || Array.isArray(incoming)) throw new Error('invalid state');
+        incoming.scan = normalizeScan(incoming.scan);
+        state = incoming;
+        stateReceivedAt = performance.now();
+        fetchFailed = false;
+        if (!paused) displayedScan = state.scan;
+      } catch (error) {
+        fetchFailed = true;
+      } finally {
+        clearTimeout(timeout);
+        updateStatus();
+        if (!disposed) pollTimer = setTimeout(pollState, Math.max(0, 100 - (performance.now() - started)));
+      }
+    }
+
+    elements.range.addEventListener('change', () => {
+      radius = Number(elements.range.value);
+      pointer = null;
+      updateStatus();
+    });
+    elements.pause.addEventListener('click', () => {
+      paused = !paused;
+      elements.pause.setAttribute('aria-pressed', String(paused));
+      setText(elements.pause, paused ? '继续显示' : '暂停图像');
+      if (!paused) displayedScan = state ? state.scan : null;
+      updateStatus();
+    });
+    elements.canvas.addEventListener('pointermove', event => {
+      const bounds = elements.canvas.getBoundingClientRect();
+      pointer = { x: event.clientX - bounds.left, y: event.clientY - bounds.top };
+      showTooltip();
+    });
+    elements.canvas.addEventListener('pointerleave', () => {
+      pointer = null;
+      showTooltip();
+    });
+    const refresh = setInterval(updateStatus, 100);
+    if (window.ResizeObserver) new ResizeObserver(resizeCanvas).observe(elements.plot);
+    window.addEventListener('resize', resizeCanvas);
+    const theme = window.matchMedia('(prefers-color-scheme: dark)');
+    if (theme.addEventListener) theme.addEventListener('change', () => updateStatus());
+    window.addEventListener('pagehide', () => {
+      disposed = true;
+      clearTimeout(pollTimer);
+      clearInterval(refresh);
+    });
+    resizeCanvas();
+    pollState();
+  </script>
+</body>
+</html>

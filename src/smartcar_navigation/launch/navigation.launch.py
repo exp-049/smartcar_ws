@@ -3,6 +3,8 @@ from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
+from launch_ros.descriptions import ParameterFile
+from nav2_common.launch import RewrittenYaml
 from launch_ros.substitutions import FindPackageShare
 
 
@@ -10,16 +12,25 @@ def generate_launch_description():
     params = PathJoinSubstitution([FindPackageShare('smartcar_navigation'), 'config', 'nav2_params.yaml'])
     behavior_tree = PathJoinSubstitution([FindPackageShare('smartcar_navigation'), 'behavior_trees', 'stable_detour.xml'])
     remappings = [('/tf', 'tf'), ('/tf_static', 'tf_static'), ('odom', '/car/chassis/odom')]
-    params_arg = [params]
+    rewrites = {'use_sim_time': LaunchConfiguration('use_sim_time'),
+                'robot_radius': LaunchConfiguration('robot_radius')}
+    params_arg = [ParameterFile(RewrittenYaml(source_file=LaunchConfiguration(key),
+                  param_rewrites=rewrites, convert_types=True), allow_substs=True)
+                  for key in ('params_file', 'params_override')]
     lifecycle_nodes = ['controller_server', 'smoother_server', 'planner_server', 'behavior_server', 'bt_navigator', 'waypoint_follower', 'velocity_smoother', 'collision_monitor']
     def node(package, executable, name, extra=None, extra_parameters=None):
         return Node(package=package, executable=executable, name=name, output='screen', parameters=params_arg + (extra_parameters or []),
                     remappings=remappings + (extra or []))
     return LaunchDescription([
+        DeclareLaunchArgument('params_file', default_value=params),
+        DeclareLaunchArgument('params_override', default_value=PathJoinSubstitution([
+            FindPackageShare('smartcar_navigation'), 'config', 'sim.yaml'])),
+        DeclareLaunchArgument('robot_radius', default_value='0.13'),
         DeclareLaunchArgument('autostart', default_value='true'),
         DeclareLaunchArgument('use_sim_time', default_value='true'),
         Node(package='smartcar_tools', executable='path_guard', name='path_guard', output='screen',
              parameters=[{'use_sim_time': LaunchConfiguration('use_sim_time')}]),
+        node('smartcar_tools', 'command_guard', 'command_guard'),
         node('nav2_controller', 'controller_server', 'controller_server', [('cmd_vel', 'cmd_vel_nav')]),
         node('nav2_smoother', 'smoother_server', 'smoother_server'),
         node('nav2_planner', 'planner_server', 'planner_server'),

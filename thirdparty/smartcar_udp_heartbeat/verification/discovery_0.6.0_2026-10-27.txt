@@ -1,0 +1,32 @@
+Version 0.6.0 active discovery validation — 2026-10-27
+
+IMPLEMENTATION AND SOFTWARE CHECKS
+- S3 joins configured 2.4 GHz MiFi; computer broadcasts discovery and acquires a
+  renewable single-subscriber lease. No fixed computer or S3 IP is required.
+- Portable discovery codec/lease + cancelable ACK tests pass strict native
+  compilation with ASAN/UBSAN. Original ACK API remains compatible.
+- ESP-IDF v6.1 / ESP32-S3 builds pass for automatic and static fallback modes.
+- 60 Mac/protocol/discovery/HTTP tests and 30 ROS core/mock tests pass.
+- Four shared Python modules are byte-identical in tools and ROS package;
+  Python AST, XML and package metadata verified. Real ROS runtime not present.
+
+REAL-HARDWARE CHECKS
+- Actual user firmware 0.6.0 compiled and flashed successfully; esptool verifies
+  image hash and resets the S3. Existing MiFi name/password preserved locally.
+- Default Mac receiver launched with --view, no --device-ip or fixed destination.
+- Real broadcast discovers device MAC ID 2884855438b8 at 192.168.0.117 and
+  subscription ACK activates data route; subsequent renewals remain active.
+- Radar, MPU6050, heartbeat ACK and software clock synchronization resume;
+  current page http://127.0.0.1:8765/ displays fresh complete circles.
+- A second actual client discovers the same device, receives busy and cannot
+  take over the existing subscription. The primary scan counter keeps advancing.
+- The application binary does not contain the former static destination string
+  192.168.0.73; static HOST_IPV4 is compiled out in automatic mode.
+
+LIMITS
+Cross-machine Ubuntu/Jazzy runtime and actual DHCP address changes still need
+team hardware testing; reconnect/session logic is covered by native/mocked tests.
+The active-mode feature changes addressing/ownership, not physical time accuracy
+or UDP reordering. No claim of zero loss or 10-minute acceptance is made.
+The prior serial monitor was closed to release the port during flashing; the
+Mac data receiver and live HTTP preview remain running.

@@ -1,0 +1,20 @@
+Linux / Ubuntu 24.04 / ROS 2 Jazzy
+
+2026-10-27 已完成实际联调。默认全局广播被 Meta TUN 路由转走；本机 config/sensors.yaml 已改为当前 MiFi /24 网段广播 192.168.0.255，仍自动发现 ESP，不固定 S3 IP。旧配置备份在 debug_backup_20261027_013557。
+
+一台 S3 同时只允许一个订阅者。切换电脑前退出原接收程序；Mac 预览已经停止。
+
+当前 ROS 节点在后台运行；日志：logs/sensors.log；PID 文件：logs/sensors.pid。不要再启动第二个接收节点。
+
+以后在终端前台启动（先停止已运行的节点）：
+cd ~/桌面/smartcar_udp_heartbeat
+./start_ros2_sensors.sh rviz:=true
+按 Ctrl+C 可退出前台启动的程序。
+
+如果只打开 RViz 查看已经运行的节点：
+source /opt/ros/jazzy/setup.bash
+rviz2 -d ~/桌面/smartcar_udp_heartbeat/ros2/smartcar_sensor_hal/config/lidar.rviz
+
+实际话题：/car/scan (sensor_msgs/msg/LaserScan)，/car/imu/data_raw (sensor_msgs/msg/Imu)，/diagnostics。30 秒测量见 logs/linux_verification_30s.json。
+
+对时建立前节点不会发布传感器消息；等待时间取决于低 RTT 样本。传感器物理采样时间仍是估计，未标定滤波/设备延迟。

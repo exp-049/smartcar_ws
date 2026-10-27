@@ -13,7 +13,7 @@ from rclpy.node import Node
 class MapSaver(Node):
     def __init__(self):
         super().__init__('smartcar_map_saver')
-        self.pub = self.create_publisher(Twist, '/car/chassis/cmd_vel', 10)
+        self.pub = self.create_publisher(Twist, '/cmd_vel_nav', 10)
     def stop(self):
         msg = Twist()
         for _ in range(10): self.pub.publish(msg); rclpy.spin_once(self, timeout_sec=0.05)

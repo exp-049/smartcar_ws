@@ -1,12 +1,14 @@
 """Start Gazebo Harmonic, the unified robot description, and directional bridges."""
 import os
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, TimerAction
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, TimerAction, OpaqueFunction
 from launch.conditions import IfCondition, UnlessCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import Command, LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
+from ament_index_python.packages import get_package_share_directory
+import xacro
 
 
 def generate_launch_description():
@@ -14,7 +16,15 @@ def generate_launch_description():
     gz_launch = PathJoinSubstitution([FindPackageShare("ros_gz_sim"), "launch", "gz_sim.launch.py"])
     xacro_file = PathJoinSubstitution([FindPackageShare("smartcar_description"), "urdf", "smartcar.urdf.xacro"])
     rviz_file = PathJoinSubstitution([FindPackageShare("smartcar_description"), "rviz", "smartcar_nav.rviz"])
-    robot_description = Command(["xacro ", xacro_file])
+    def publish_model(context):
+        path = os.path.join(get_package_share_directory('smartcar_description'), 'urdf', 'smartcar.urdf.xacro')
+        xml = xacro.process_file(path, mappings={
+            'use_gazebo': 'true',
+            'calibration_file': LaunchConfiguration('calibration_file').perform(context),
+        }).toxml()
+        return [Node(package='robot_state_publisher', executable='robot_state_publisher',
+                     name='robot_state_publisher', parameters=[{'robot_description': xml, 'use_sim_time': True}],
+                     output='screen')]
     bridge_topics = [
         "/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock",
         "/car/scan@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan",
@@ -24,6 +34,8 @@ def generate_launch_description():
         "/car/chassis/cmd_vel/gz@geometry_msgs/msg/Twist]gz.msgs.Twist",
     ]
     return LaunchDescription([
+        DeclareLaunchArgument('calibration_file', default_value=PathJoinSubstitution([
+            FindPackageShare('smartcar_description'), 'config', 'nominal.yaml'])),
         DeclareLaunchArgument("headless", default_value="false"),
         DeclareLaunchArgument("use_rviz", default_value="true"),
         DeclareLaunchArgument("world", default_value="smartcar_navigation.sdf"),
@@ -35,8 +47,7 @@ def generate_launch_description():
             PythonLaunchDescriptionSource(gz_launch),
             launch_arguments={"gz_args": [world, " -r -s --headless-rendering"]}.items(),
             condition=IfCondition(LaunchConfiguration("headless"))),
-        Node(package="robot_state_publisher", executable="robot_state_publisher", name="robot_state_publisher",
-             parameters=[{"robot_description": robot_description, "use_sim_time": True}], output="screen"),
+        OpaqueFunction(function=publish_model),
         TimerAction(period=3.0, actions=[
             Node(package="ros_gz_sim", executable="create", name="spawn_smartcar",
                  arguments=["-topic", "robot_description", "-name", "smartcar", "-x", "0", "-y", "0", "-z", "0.001"], output="screen")]),

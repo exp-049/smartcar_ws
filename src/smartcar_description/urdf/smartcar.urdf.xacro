@@ -1,18 +1,21 @@
 <?xml version="1.0"?>
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="smartcar">
   <xacro:arg name="use_gazebo" default="true"/>
-  <xacro:property name="wheel_radius" value="0.024"/>
-  <xacro:property name="wheel_separation" value="0.133"/>
-  <xacro:property name="wheel_width" value="0.018"/>
-  <xacro:property name="body_length" value="0.180"/>
-  <xacro:property name="body_width" value="0.110"/>
-  <xacro:property name="body_height" value="0.020"/>
-  <xacro:property name="body_mass" value="0.80"/>
-  <xacro:property name="laser_height" value="0.110"/>
-  <xacro:property name="imu_height" value="0.057"/>
-  <!-- Load the driven tires first; four exactly coplanar rigid supports can
-       unload a wheel as a mesh facet rolls through its contact patch. -->
-  <xacro:property name="caster_clearance" value="0.0005"/>
+  <xacro:arg name="calibration_file" default="$(find smartcar_description)/config/nominal.yaml"/>
+  <xacro:property name="calibration" value="${xacro.load_yaml('$(arg calibration_file)')}"/>
+  <xacro:property name="model" value="${calibration['model']}"/>
+  <xacro:property name="wheel_radius" value="${model['wheel_radius']}"/>
+  <xacro:property name="wheel_separation" value="${model['wheel_separation']}"/>
+  <xacro:property name="wheel_width" value="${model['wheel_width']}"/>
+  <xacro:property name="body_length" value="${model['body_length']}"/>
+  <xacro:property name="body_width" value="${model['body_width']}"/>
+  <xacro:property name="body_height" value="${model['body_height']}"/>
+  <xacro:property name="body_mass" value="${model['body_mass']}"/>
+  <xacro:property name="body_z" value="${model['body_z']}"/>
+  <xacro:property name="inertia_xx" value="${model['inertia_xx']}"/>
+  <xacro:property name="inertia_yy" value="${model['inertia_yy']}"/>
+  <xacro:property name="inertia_zz" value="${model['inertia_zz']}"/>
+  <xacro:property name="caster_clearance" value="${model['caster_clearance']}"/>
 
   <material name="blue"><color rgba="0.08 0.28 0.78 1.0"/></material>
   <material name="black"><color rgba="0.025 0.025 0.025 1.0"/></material>
@@ -23,19 +26,19 @@
   <!-- base_link is the wheel axle midpoint projected to the ground. -->
   <link name="base_link">
     <inertial>
-      <origin xyz="0 0 0.045"/>
+      <origin xyz="0 0 ${body_z}"/>
       <mass value="${body_mass}"/>
       <!-- Solid 0.180 x 0.110 x 0.020 m box; values satisfy Gazebo's
            positive-definite inertia triangle inequalities. -->
       <!-- Slightly conservative values leave margin after Gazebo combines the
            fixed sensor / caster links into base_link. -->
-      <inertia ixx="0.000845" ixy="0" ixz="0" iyy="0.002200" iyz="0" izz="0.002951"/>
+      <inertia ixx="${inertia_xx}" ixy="0" ixz="0" iyy="${inertia_yy}" iyz="0" izz="${inertia_zz}"/>
     </inertial>
-    <visual><origin xyz="0 0 0.045"/><geometry><box size="${body_length} ${body_width} ${body_height}"/></geometry><material name="blue"/></visual>
-    <collision><origin xyz="0 0 0.045"/><geometry><box size="${body_length} ${body_width} ${body_height}"/></geometry></collision>
+    <visual><origin xyz="0 0 ${body_z}"/><geometry><box size="${body_length} ${body_width} ${body_height}"/></geometry><material name="blue"/></visual>
+    <collision><origin xyz="0 0 ${body_z}"/><geometry><box size="${body_length} ${body_width} ${body_height}"/></geometry></collision>
   </link>
   <link name="chassis_link"/>
-  <joint name="base_to_chassis" type="fixed"><parent link="base_link"/><child link="chassis_link"/></joint>
+  <joint name="base_to_chassis" type="fixed"><parent link="base_link"/><child link="chassis_link"/><origin xyz="${model['chassis_xyz']}" rpy="${model['chassis_rpy']}"/></joint>
 
   <link name="left_wheel">
     <inertial><mass value="0.06"/><inertia ixx="0.000012" ixy="0" ixz="0" iyy="0.000017" iyz="0" izz="0.000012"/></inertial>
@@ -59,10 +62,11 @@
   <joint name="rear_caster_joint" type="fixed"><parent link="base_link"/><child link="rear_caster"/><origin xyz="-0.070 0 ${0.012 + caster_clearance}"/></joint>
 
   <link name="laser_link"><visual><origin xyz="0 0 0.0125"/><geometry><cylinder radius="0.035" length="0.025"/></geometry><material name="red"/></visual></link>
-  <joint name="laser_joint" type="fixed"><parent link="base_link"/><child link="laser_link"/><origin xyz="0 0 ${laser_height}"/></joint>
+  <joint name="laser_joint" type="fixed"><parent link="base_link"/><child link="laser_link"/><origin xyz="${model['laser_xyz']}" rpy="${model['laser_rpy']}"/></joint>
   <link name="imu_link"><visual><geometry><box size="0.028 0.020 0.008"/></geometry><material name="green"/></visual></link>
-  <joint name="imu_joint" type="fixed"><parent link="base_link"/><child link="imu_link"/><origin xyz="0 0 ${imu_height}"/></joint>
+  <joint name="imu_joint" type="fixed"><parent link="base_link"/><child link="imu_link"/><origin xyz="${model['imu_xyz']}" rpy="${model['imu_rpy']}"/></joint>
 
+  <xacro:if value="$(arg use_gazebo)">
   <gazebo reference="base_link"><gravity>true</gravity><self_collide>false</self_collide></gazebo>
   <gazebo reference="front_caster"><mu1>0.02</mu1><mu2>0.02</mu2></gazebo>
   <gazebo reference="rear_caster"><mu1>0.02</mu1><mu2>0.02</mu2></gazebo>
@@ -76,4 +80,5 @@
     <plugin filename="gz-sim-diff-drive-system" name="gz::sim::systems::DiffDrive"><left_joint>left_wheel_joint</left_joint><right_joint>right_wheel_joint</right_joint><wheel_separation>${wheel_separation}</wheel_separation><wheel_radius>${wheel_radius}</wheel_radius><topic>/car/chassis/cmd_vel/gz</topic><odom_topic>/car/chassis/odom/gz</odom_topic><tf_topic>/smartcar/gz/tf</tf_topic><frame_id>chassis_odom</frame_id><child_frame_id>base_link</child_frame_id><odom_publish_frequency>50</odom_publish_frequency><max_linear_velocity>0.20</max_linear_velocity><max_angular_velocity>1.20</max_angular_velocity></plugin>
     <plugin filename="gz-sim-joint-state-publisher-system" name="gz::sim::systems::JointStatePublisher"><topic>/joint_states</topic><joint_name>left_wheel_joint</joint_name><joint_name>right_wheel_joint</joint_name><update_rate>50</update_rate></plugin>
   </gazebo>
+  </xacro:if>
 </robot>

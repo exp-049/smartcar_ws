@@ -1,0 +1,30 @@
+X3PRO staged validation — 2026-10-26
+
+USER-PROVIDED REAL HARDWARE LOG (preceding firmware stage)
+- Confirmed wiring: radar Tx -> S3 GPIO44, common ground; existing PWM/power retained.
+- UART RX observed 9173–9339 bytes/s; valid packet counter 2848 -> 3364.
+- Sample counter 90323 -> 106723 across approximately 4.1 s.
+- Start marker rate observed 8.72–9.95/s.
+- checksum_bad=0, header_bad=0, overflow=0, line_errors=0.
+- Concurrent heartbeat seq 17–21: ACK OK, ignored=0.
+- This establishes UART reception and heartbeat operation. It does not establish
+  calibrated ranging accuracy, complete ROS scans or final ten-minute acceptance.
+
+VERSION 0.4.0 SOURCE VALIDATION
+- ESP-IDF v6.1 ESP32-S3 build: PASS; 16 MB Flash; UART and Wi-Fi enabled with
+  synthetic test credentials in a separate work build. User sdkconfig unchanged.
+- Native C parser + compact JSON/CRC encoder: PASS under ASAN/UBSAN.
+- Python protocol/sequence tests: 21 PASS.
+- Actual C output decoded by Python: PASS (3-point reference and maximum 255-point packet).
+- Mixed localhost UDP: 8 valid messages, 3 injected invalid messages, 0 ACK send failures.
+  Bad CRC, truncated JSON and oversized datagram rejected; subsequent data accepted.
+  Radar data not ACKed. Heartbeat ACKs remain valid. Duplicate, reordered and uint32
+  wrap-around cases tracked. JSONL recording verified.
+- Maximum C-encoded JSON length: 1191 bytes; accepted protocol limit: 1200 bytes.
+
+PENDING REAL HARDWARE VALIDATION
+- Flash version 0.4.0 and restart the updated Mac receiver.
+- Compare S3 captured/sent/error counters with Mac packet/sample/error statistics.
+- Verify actual Wi-Fi throughput and reconnect behavior; record real data if needed.
+- Complete-scan assembly, angle/coordinate conventions, time mapping, ROS 2 HAL,
+  IMU integration and final acceptance remain later tasks.

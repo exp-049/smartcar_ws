@@ -1,0 +1,11 @@
+Hardware network recovery — 2026-10-26
+Observed cause: S3 repeatedly reported WIFI_REASON_NO_AP_FOUND=201; both sensor
+streams captured data while sent=0 and wifi_drop increased. Mac listened on UDP
+8888 and retained IPv4 192.168.0.73. User confirmed the MiFi was in 5 GHz mode.
+After user switched to 2.4 GHz (same network credentials), no reflash was needed.
+S3 obtained 192.168.0.117; matching heartbeat ACKs and clock synchronization
+responses resumed. Historical send/wifi-drop counters are cumulative, not current
+loss-rate measurements. This short recovery check is not the 10-minute acceptance.
+
+mpu6050: ready= ESP log interval=10.070s delta={'captured': 503, 'sent': 503, 'wifi_drop': 0, 'send_err': 0, 'i2c_err': 0, 'queue_drop': 0}; sent_rate=49.95/s
+lidar_udp: captured= ESP log interval=10.050s delta={'captured': 1220, 'sent': 1220, 'wifi_drop': 0, 'send_err': 0, 'queue_drop': 0}; sent_rate=121.39/s

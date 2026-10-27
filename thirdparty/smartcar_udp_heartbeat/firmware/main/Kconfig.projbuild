@@ -1,0 +1,83 @@
+menu "Smartcar UDP Heartbeat"
+
+    config SMARTCAR_WIFI_SSID
+        string "Wi-Fi SSID"
+        default ""
+        help
+            Name of the 2.4 GHz Wi-Fi network. Configure this locally.
+
+    config SMARTCAR_WIFI_PASSWORD
+        string "Wi-Fi password"
+        default ""
+        help
+            Configure this locally. The application never logs this password.
+            Leave empty only for an open network.
+
+    config SMARTCAR_AUTO_DISCOVERY
+        bool "Discover and subscribe from the receiver (no fixed host IP)"
+        default y
+        help
+            The S3 joins Wi-Fi and waits for a computer to discover and subscribe.
+            Sensor data is sent only to the active subscriber, learned from its
+            source IP and requested data port. Disable for legacy static routing.
+
+    config SMARTCAR_DISCOVERY_PORT
+        int "S3 UDP discovery and subscription port"
+        range 1024 65535
+        default 8890
+
+    config SMARTCAR_HOST_IPV4
+        string "Legacy static receiver IPv4 (ignored during auto discovery)"
+        default "192.168.1.100"
+        help
+            Used only when automatic discovery is disabled.
+            Reachable LAN IPv4 address of the receiver.
+            Do not use 127.0.0.1, the router address, or the ESP32 address.
+
+    config SMARTCAR_HOST_PORT
+        int "Receiver UDP data port"
+        range 1024 65535
+        default 8888
+
+    config SMARTCAR_SYNC_PORT
+        int "S3 UDP clock synchronization port"
+        range 1024 65535
+        default 8889
+
+    config SMARTCAR_IMU_ENABLE
+        bool "Enable MPU6050 50 Hz acquisition and UDP"
+        default y
+
+    config SMARTCAR_IMU_SCL_GPIO
+        int "MPU6050 SCL GPIO"
+        depends on SMARTCAR_IMU_ENABLE
+        range 0 48
+        default 21
+
+    config SMARTCAR_IMU_SDA_GPIO
+        int "MPU6050 SDA GPIO"
+        depends on SMARTCAR_IMU_ENABLE
+        range 0 48
+        default 47
+
+    config SMARTCAR_LIDAR_ENABLE
+        bool "Enable X3PRO UART receive diagnostics"
+        default y
+
+    config SMARTCAR_LIDAR_RX_GPIO
+        int "X3PRO receive GPIO (radar Tx connects here)"
+        depends on SMARTCAR_LIDAR_ENABLE
+        range 0 48
+        default 44
+        help
+            This installation has confirmed radar Tx to GPIO44 and common GND.
+            The receive peripheral is UART1; logs remain on native USB.
+            Do not use GPIO19/20 (USB) or GPIO35/36/37 (N16R8 PSRAM).
+
+    config SMARTCAR_LIDAR_BAUD
+        int "X3PRO UART baud rate"
+        depends on SMARTCAR_LIDAR_ENABLE
+        range 1200 921600
+        default 115200
+
+endmenu

@@ -1,0 +1,16 @@
+# Integration template, NOT a UDP protocol or a runnable sensor driver.
+# Replace this file with the real driver's parameters and remove this flag.
+/**:
+  ros__parameters:
+    integration_template: true
+    use_sim_time: false
+    bind_address: "0.0.0.0"
+    udp_port: 0  # Unassigned: agree with the ESP32-S3 firmware owner.
+    protocol_version: "unconfigured"
+    scan_topic: /car/scan
+    imu_topic: /car/imu/data_raw
+    scan_frame: laser_link
+    imu_frame: imu_link
+    scan_rate_hz: 10.0
+    imu_rate_hz: 50.0
+    timestamp_source: synchronized_device_acquisition_time

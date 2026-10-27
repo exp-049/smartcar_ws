@@ -1,0 +1,38 @@
+smartcar_sensor_hal:
+  ros__parameters:
+    use_sim_time: false
+    device_ip: ''  # automatic discovery; optional manual S3 IPv4 override
+    device_id: ''  # stable 12-hex identifier; select explicitly when multiple cars are found
+    broadcast_address: '192.168.0.255'  # MiFi /24; avoid Meta TUN broadcast route
+    bind_address: '0.0.0.0'
+    data_port: 8888
+    discovery_port: 8890  # sync port is advertised by the selected S3
+    enable_lidar: true
+    enable_imu: true
+    scan_frame_id: 'laser_link'
+    imu_frame_id: 'imu_link'
+    lidar_sample_rate_hz: 4000.0
+    lidar_baudrate: 115200
+    range_min_m: 0.12
+    range_max_m: 8.0
+    scan_bins: 0  # use observed point count; never invent additional scan frames
+    lidar_angle_correction: 'triangle'  # SDK triangle formula; verify direction on actual installation
+    laser_yaw_offset_deg: 0.0
+    lidar_device_delay_us: 0.0  # unknown device buffering; must be calibrated for precise timing
+    lidar_device_delay_calibrated: false
+    scan_timeout_s: 0.5
+    max_scan_interpolation_error_ms: 10.0
+    imu_filter_delay_us: 4850.0  # DLPF=3: accel 4.9 ms / gyro 4.8 ms, shared estimate
+    imu_filter_delay_calibrated: false
+    imu_acceleration_bias_m_s2: [0.0, 0.0, 0.0]
+    imu_angular_velocity_bias_rad_s: [0.0, 0.0, 0.0]
+    imu_acceleration_covariance: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    imu_angular_velocity_covariance: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    max_sync_uncertainty_ms: 10.0
+    max_sensor_age_s: 0.5
+    max_future_stamp_ms: 20.0
+    poll_period_s: 0.002
+    max_datagrams_per_tick: 200
+    reference_scan_hz: 10.0
+    reference_imu_hz: 50.0
+    record_jsonl_path: ''  # optional exact incoming-datagram recording

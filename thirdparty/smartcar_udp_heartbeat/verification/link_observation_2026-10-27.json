@@ -1,0 +1,143 @@
+{
+  "started_local": "2026-10-27T00:16:45+08:00",
+  "duration_s": 30.012121042,
+  "device_ip": "192.168.0.117",
+  "boot_ids": [
+    "f1bffe33aaff9a92"
+  ],
+  "counts_delta": {
+    "assembler.completed_scans": 268,
+    "assembler.corrected_outside_scan_points": 219,
+    "assembler.duplicate_or_out_of_order_packets": 17,
+    "assembler.initial_partial_packets": 0,
+    "assembler.invalid_dropped_scans": 15,
+    "assembler.invalidated": 32,
+    "assembler.rounded_outside_scan_points": 12,
+    "assembler.sequence_gap_packets": 17,
+    "assembler.timeout_dropped_scans": 0,
+    "completed_scans": 268,
+    "imu_packets": 1497,
+    "lidar_packets": 3603
+  },
+  "rates_hz": {
+    "lidar_packets": 120.0514950262208,
+    "imu_packets": 49.87984680939566,
+    "completed_scans": 8.929725414106905
+  },
+  "scan_age_ms": {
+    "count": 144,
+    "p50": 39.5915625,
+    "p95": 165.97444199999967,
+    "max": 820.1494580000001,
+    "mean": 67.33291932638889
+  },
+  "packet_age_ms": {
+    "count": 144,
+    "p50": 5.031833,
+    "p95": 13.467543699999998,
+    "max": 33.093958,
+    "mean": 5.957478638888889
+  },
+  "imu_age_ms": {
+    "count": 144,
+    "p50": 9.905292000000001,
+    "p95": 22.881560749999988,
+    "max": 36.098666,
+    "mean": 10.472827868055555
+  },
+  "rtt_ms": {
+    "count": 110,
+    "p50": 8.146229,
+    "p95": 22.79725609999999,
+    "max": 124.752333,
+    "mean": 11.510907990909091
+  },
+  "sync_probe_timeouts": 0,
+  "sync_probe_pending": 0,
+  "sync_invalid_responses": 0,
+  "http_errors": [],
+  "stale_scan_samples": 0,
+  "sample_count": 144,
+  "viewer_sync_start": {
+    "locked": true,
+    "rtt_ms": 5.379459,
+    "uncertainty_ms": 3.000901
+  },
+  "viewer_sync_end": {
+    "locked": true,
+    "rtt_ms": 5.428709,
+    "uncertainty_ms": 3.083948
+  },
+  "serial_window": {
+    "mpu6050: ready=": {
+      "duration_s": 28.17,
+      "delta": {
+        "ready": 1407,
+        "captured": 1407,
+        "sent": 1407,
+        "bracket_drop": 0,
+        "read_boundary_drop": 0,
+        "i2c_err": 0,
+        "poll_coalesced": 0,
+        "queue_drop": 0,
+        "wifi_drop": 0,
+        "old_drop": 0,
+        "send_err": 0,
+        "encode_err": 0
+      },
+      "start_line": "I (3308742) mpu6050: ready=165232 captured=165231 sent=136852 bracket_drop=1 read_boundary_drop=0 i2c_err=0 poll_coalesced=62 queue_drop=0 wifi_drop=28113 old_drop=0 send_err=266 encode_err=0",
+      "end_line": "I (3336912) mpu6050: ready=166639 captured=166638 sent=138259 bracket_drop=1 read_boundary_drop=0 i2c_err=0 poll_coalesced=62 queue_drop=0 wifi_drop=28113 old_drop=0 send_err=266 encode_err=0"
+    },
+    "lidar_udp: captured=": {
+      "duration_s": 29.11,
+      "delta": {
+        "captured": 3490,
+        "sent": 3490,
+        "queue_drop": 0,
+        "wifi_drop": 0,
+        "old_drop": 0,
+        "send_err": 0,
+        "encode_err": 0
+      },
+      "start_line": "I (3308272) lidar_udp: captured=401999 sent=332935 queue_drop=0 wifi_drop=68426 old_drop=0 send_err=638 encode_err=0",
+      "end_line": "I (3337382) lidar_udp: captured=405489 sent=336425 queue_drop=0 wifi_drop=68426 old_drop=0 send_err=638 encode_err=0"
+    },
+    "lidar_uart: RX=": {
+      "duration_s": 28.03,
+      "delta": {
+        "total": 258083,
+        "valid": 3361,
+        "samples": 112115,
+        "checksum_bad": 0,
+        "header_bad": 0,
+        "overflow": 0,
+        "line_errors": 0
+      },
+      "start_line": "I (3308852) lidar_uart: RX=9226 B/s total=30518714 valid=402070 (+121/window) samples=13233388 start_markers=8.99/s checksum_bad=0 header_bad=0 overflow=0 line_errors=0",
+      "end_line": "I (3336882) lidar_uart: RX=9276 B/s total=30776797 valid=405431 (+127/window) samples=13345503 start_markers=9.98/s checksum_bad=0 header_bad=0 overflow=0 line_errors=0"
+    },
+    "heartbeat_ack_ok": 30,
+    "heartbeat_ack_timeouts": 0,
+    "wifi_disconnects": 0
+  },
+  "receiver_log_near_window": {
+    "LIDAR": {
+      "first_anchor_uptime_s": 3323.179,
+      "last_anchor_uptime_s": 3338.179,
+      "first_line": "LIDAR packets/s=120.7 points/s=3943.0 valid_ranges/s=2746.3 min_m=0.151 last_seq=403806 crc_errors=0 invalid_errors=0 duplicate=0 out_of_order=1784 gaps_est=2004",
+      "last_line": "LIDAR packets/s=123.5 points/s=3984.3 valid_ranges/s=2786.6 min_m=0.147 last_seq=405631 crc_errors=0 invalid_errors=0 duplicate=0 out_of_order=1785 gaps_est=2005"
+    },
+    "IMU": {
+      "first_anchor_uptime_s": 3323.179,
+      "last_anchor_uptime_s": 3338.179,
+      "first_line": "IMU packets/s=49.9 accel_m_s2=(-1.815,3.378,-10.038) gyro_rad_s=(-0.0922,0.0055,0.0288) temp_c=26.16 seq=165965 ready_bracket_half_us=1133 duplicate=0 out_of_order=345 gaps_est=432",
+      "last_line": "IMU packets/s=49.4 accel_m_s2=(-1.611,3.347,-9.626) gyro_rad_s=(-0.0929,0.0033,0.0284) temp_c=26.14 seq=166718 ready_bracket_half_us=1077 duplicate=0 out_of_order=345 gaps_est=432"
+    }
+  },
+  "measurement_limits": [
+    "RTT is a software four-timestamp round trip, not one-way sensor latency.",
+    "Scan age is host receipt age of latest complete circle, not physical acquisition-to-screen latency.",
+    "Forward sequence gaps do not decrease for late arrivals; no final network loss rate claimed.",
+    "Serial statistics use device-time-aligned approximately one-Hz log boundaries."
+  ]
+}

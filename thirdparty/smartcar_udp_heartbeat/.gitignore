@@ -1,0 +1,12 @@
+captures/
+recordings/
+__pycache__/
+*.pyc
+# Workspace artifacts excluded from the vendored source snapshot.
+/build/
+/install/
+/log/
+/logs/
+/debug_backup_*/
+*.egg-info/
+.pytest_cache/

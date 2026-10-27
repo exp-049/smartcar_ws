@@ -1,0 +1,19 @@
+{
+  "primary_device_ip": "192.168.0.117",
+  "device_id": "2884855438b8",
+  "boot_id": "c8f4f3e64bc310d1",
+  "secondary_states": [
+    "discovering",
+    "subscribing",
+    "busy"
+  ],
+  "primary_scan_seq_before": 1259,
+  "primary_scan_seq_after": 1265,
+  "scan_hz": 9.652789173431664,
+  "scan_age_s": 0.095603292,
+  "sync": {
+    "locked": true,
+    "rtt_ms": 6.030083,
+    "uncertainty_ms": 3.279911
+  }
+}

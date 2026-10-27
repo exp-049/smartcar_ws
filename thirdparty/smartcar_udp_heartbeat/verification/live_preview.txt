@@ -1,0 +1,12 @@
+Live lidar preview validation
+- Actual S3 192.168.0.117 streams into Mac UDP 8888; HTTP binds 127.0.0.1:8765 only.
+- Real complete scans observed approximately 9.4–9.5 Hz, 280–300 valid output points per circle.
+- IMU and heartbeat handling retained; software synchronization reports locked.
+- 9 viewer tests pass, including actual localhost HTTP, scan recovery, coordinate direction,
+  stale ages, peer changes, JSON-safe invalid ranges and lifecycle cleanup.
+- Existing 36 protocol/receiver tests pass after integration.
+- Real Chrome runtime checks pass: displayed live points, pause/resume, range selection,
+  390px layout without horizontal overflow and no JavaScript errors. Desktop/mobile
+  screenshots inspected visually. No simulated points were inserted into the live stream.
+- Separate Ubuntu RViz config/optional launch included; actual RViz is not installed
+  on this Mac and was not run here.
