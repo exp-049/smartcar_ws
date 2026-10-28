@@ -10,11 +10,48 @@ config MICRO_ROS_APP_TASK_PRIO
     range 1 19
     default 8
 
+choice SMARTCAR_CHASSIS_MODE
+    prompt "Chassis communication mode"
+    default SMARTCAR_CHASSIS_MICROROS_UDP
+
+config SMARTCAR_CHASSIS_MICROROS_UDP
+    bool "micro-ROS over Wi-Fi UDP"
+
 config SMARTCAR_CHASSIS_MICROROS_SERIAL
-    bool "Run the micro-ROS serial client"
-    default y
+    bool "micro-ROS over USB serial"
     help
         Use UART0 exclusively for micro-ROS XRCE-DDS. Disable the serial CLI and
         JSON console because both share the ESP32 USB-UART connection.
+
+config SMARTCAR_CHASSIS_CONSOLE
+    bool "Serial diagnostic console"
+endchoice
+
+config SMARTCAR_WIFI_SSID
+    string "2.4 GHz Wi-Fi SSID"
+    depends on SMARTCAR_CHASSIS_MICROROS_UDP
+    default "Mifi_049"
+
+config SMARTCAR_WIFI_PASSWORD
+    string "Wi-Fi password (local sdkconfig only)"
+    depends on SMARTCAR_CHASSIS_MICROROS_UDP
+    default ""
+
+config SMARTCAR_AUTO_DISCOVERY
+    bool
+    depends on SMARTCAR_CHASSIS_MICROROS_UDP
+    default y
+
+config SMARTCAR_DISCOVERY_PORT
+    int "Chassis discovery UDP port"
+    depends on SMARTCAR_CHASSIS_MICROROS_UDP
+    range 1024 65535
+    default 8892
+
+config SMARTCAR_SYNC_PORT
+    int "Agent UDP port advertised in discovery"
+    depends on SMARTCAR_CHASSIS_MICROROS_UDP
+    range 1024 65535
+    default 8891
 
 endmenu

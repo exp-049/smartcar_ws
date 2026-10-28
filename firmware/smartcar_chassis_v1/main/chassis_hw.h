@@ -2,7 +2,7 @@
 #include "chassis_core.h"
 #include "esp_err.h"
 
-typedef enum {CMD_STOP, CMD_MODE, CMD_ARM, CMD_WHEEL, CMD_TWIST, CMD_BODY, CMD_LINK, CMD_CLEAR, CMD_ZERO, CMD_CONFIG, CMD_FILTER} chassis_command_type_t;
+typedef enum {CMD_STOP, CMD_MODE, CMD_ARM, CMD_WHEEL, CMD_TWIST, CMD_BODY, CMD_LINK, CMD_CLEAR, CMD_ZERO, CMD_CONFIG, CMD_FILTER, CMD_PWM_DIRECT} chassis_command_type_t;
 typedef struct {
     chassis_command_type_t type;
     int64_t time_us;

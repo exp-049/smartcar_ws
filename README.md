@@ -134,13 +134,12 @@ source install/local_setup.bash
 ros2 pkg prefix micro_ros_agent
 ```
 
-该流程对应 [官方 micro-ROS Jazzy 构建说明](https://github.com/micro-ROS/micro_ros_setup/tree/jazzy)。默认 Agent 为 UDPv4、端口 8888；可用 `agent_transport`、`agent_port` 覆盖。串口模式使用 `agent_transport:=serial agent_device:=/dev/ttyUSB0`。
+该流程对应 [官方 micro-ROS Jazzy 构建说明](https://github.com/micro-ROS/micro_ros_setup/tree/jazzy)。底盘 Agent 默认使用 UDPv4 端口 8891，并由主机在 8892 端口主动发现底盘；这与传感器使用的 8888–8890 分开。可用 `agent_transport`、`agent_port` 和 `chassis_discovery_port` 覆盖，多网卡时可指定 `chassis_interface`。UDP 固件目前已编译，尚待刷写及实机联调，网络配置见[准备记录](docs/dev_log/2026-10-27-microros-udp-preparation.md)。如使用设备上原有的串口固件，指定 `agent_transport:=serial agent_device:=/dev/ttyUSB0 agent_baudrate:=460800`。
 
 实机标定模板在 `src/smartcar_description/config/real.template.yaml`。填写机器人实测外参、方法和来源，记录底盘/IMU
 固件及标定版本后，再以 `status: measured` 保存为车辆配置。名义几何和导航 footprint 有范围校验；轮式里程计的有效轮径、
 轮距由底盘固件负责，IMU 零偏/轴向由 ESP32-S3 标定模块处理，HAL 不重复应用补偿。模型中的 `xyz/rpy` 使用米和弧度。
 
-导航启动前检查时钟、`/car/scan`、`/car/imu/data_raw`、`/car/chassis/odom`、地图和动态/静态 TF，并保持有效 0.5 秒；
-超时由 `readiness_timeout` 控制。运行中故障使 `/car/chassis/cmd_vel` 输出 0 并锁定，恢复数据后须停车并调用
-`/car/resume_commands` 服务，然后重新提交目标。健康状态发布到 `/diagnostics`。
-底盘固件还必须独立订阅该速度话题并实现不大于 0.5 秒的指令看门狗，以覆盖 ROS 进程退出或 Agent 链路中断。
+导航启动前检查时钟、`/car/scan`、`/car/imu/data_raw`、`/car/chassis/odom`、地图和动态/静态 TF，并保持有效 0.5 秒；超时由 `readiness_timeout` 控制。健康状态发布到 `/diagnostics`。
+
+Nav2、`/car/cmd_vel_checked` 和实车 `/car/chassis/cmd_vel` 使用标准车体速度单位（m/s、rad/s）。实车 `command_guard` 用唯一的 `speed_per_pwm` 按轮距换算为归一化左右轮指令，并发布到内部 `/car/chassis/cmd_pwm`（`linear.x` 左轮、`angular.z` 右轮，范围 `[-1, 1]`）；仿真继续向 Gazebo 输出物理车体速度。底盘固件对归一化轮指令使用正反向 ReLU 开环映射，不运行速度 PID。手动发布 `/car/chassis/cmd_vel` 时发车体速度，不要直接填左右轮值。

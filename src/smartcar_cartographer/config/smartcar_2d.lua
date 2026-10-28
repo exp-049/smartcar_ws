@@ -41,7 +41,12 @@ POSE_GRAPH.optimization_problem.odometry_rotation_weight = 1e1
 
 TRAJECTORY_BUILDER_2D.min_range = 0.12
 TRAJECTORY_BUILDER_2D.max_range = 8.0
-TRAJECTORY_BUILDER_2D.missing_data_ray_length = 8.5
+-- A ray with no return means "unknown", not "known free space". Inserting a
+-- missing-data ray (the Cartographer default behaviour, length > max_range)
+-- carves a long free corridor through cells nothing ever observed, which both
+-- erases real obstacles and paints empty space where the sensor was blind.
+-- Zero length keeps every unobserved cell unknown.
+TRAJECTORY_BUILDER_2D.missing_data_ray_length = 0.0
 TRAJECTORY_BUILDER_2D.num_accumulated_range_data = 1
 TRAJECTORY_BUILDER_2D.use_imu_data = true
 -- Points are expressed relative to imu_link (laser is only 0.053 m above

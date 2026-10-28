@@ -42,8 +42,11 @@ def common_arguments():
         'world': 'smartcar_navigation.sdf', 'calibration_file': '',
         'start_hal': 'true', 'hal_package': 'smartcar_sensor_hal', 'hal_executable': 'sensor_hal',
         'hal_params_file': share('smartcar_sensor_hal', 'config', 'sensors.yaml'),
-        'start_agent': 'true', 'agent_transport': 'udp4', 'agent_port': '8888',
-        'agent_device': '', 'agent_baudrate': '115200',
+        'start_agent': 'true', 'agent_transport': 'udp4', 'agent_port': '8891',
+        'agent_device': '', 'agent_baudrate': '460800',
+        'chassis_discovery': 'true', 'chassis_discovery_port': '8892',
+        'chassis_broadcast_address': '', 'chassis_device_id': '', 'chassis_device_ip': '',
+        'chassis_interface': '',
         'readiness_timeout': '120.0', 'configuration_basename': '',
         'use_odom': 'true', 'use_imu': 'true',
         'nav_params_file': share('smartcar_navigation', 'config', 'nav2_params.yaml'),
@@ -88,7 +91,20 @@ def start_agent(context):
         if not context.is_shutdown:
             return [EmitEvent(event=Shutdown(reason=f'micro-ROS Agent exited: {event.returncode}'))]
         return []
-    return [RegisterEventHandler(OnProcessExit(target_action=node, on_exit=stopped)), node]
+    actions = [RegisterEventHandler(OnProcessExit(target_action=node, on_exit=stopped)), node]
+    if value(context, 'agent_transport') == 'udp4' and boolean(context, 'chassis_discovery'):
+        discovery_port = int(value(context, 'chassis_discovery_port'))
+        if not 1024 <= discovery_port <= 65535 or discovery_port == int(value(context, 'agent_port')):
+            raise RuntimeError('chassis_discovery_port must be 1024..65535 and differ from agent_port')
+        discovery = Node(package='smartcar_bringup', executable='chassis_discovery', output='screen',
+                         arguments=['--agent-port', value(context, 'agent_port'),
+                                    '--discovery-port', str(discovery_port),
+                                    '--broadcast', value(context, 'chassis_broadcast_address'),
+                                    '--device-id', value(context, 'chassis_device_id'),
+                                    '--device-ip', value(context, 'chassis_device_ip'),
+                                    '--interface', value(context, 'chassis_interface')])
+        actions.extend([RegisterEventHandler(OnProcessExit(target_action=discovery, on_exit=stopped)), discovery])
+    return actions
 
 
 def validate_calibration(path, runtime):

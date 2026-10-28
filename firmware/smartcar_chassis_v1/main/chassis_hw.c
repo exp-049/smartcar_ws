@@ -33,6 +33,25 @@ static bool s_stop_requested;
 static int s_last_direction[2];
 static uint32_t s_boot_output_enable;
 static int64_t s_phase_window_start[4], s_phase_check_us;
+// The PCNT driver internally accumulates 16-bit overflows into a signed
+// 32-bit value. Extend that value to 64 bits once per control tick.
+static int s_wheel_count_previous[2];
+static int64_t s_wheel_count_total[2];
+static bool s_wheel_count_initialized[2];
+
+// Phase and motor diagnostic units do not enable accum_count, so their
+// hardware counters clear at +/-CHASSIS_PCNT_LIMIT. Unwrap one such boundary
+// between samples. The chassis pulse-rate limit keeps each interval far below
+// half the counter range, which makes the nearest signed delta unambiguous.
+static int64_t pcnt_window_delta(int current, int previous)
+{
+    int64_t delta=(int64_t)current-(int64_t)previous;
+    if(delta<-(CHASSIS_PCNT_LIMIT/2) && previous>0 && current>=0)
+        delta+=CHASSIS_PCNT_LIMIT;
+    else if(delta>(CHASSIS_PCNT_LIMIT/2) && previous<0 && current<=0)
+        delta-=CHASSIS_PCNT_LIMIT;
+    return delta;
+}
 
 static void pwm_write(int channel, double duty)
 {
@@ -94,14 +113,27 @@ static void process_command(const chassis_command_t *c)
             if(err==ESP_OK) err=pcnt_unit_set_glitch_filter(unit,ns?&filter:NULL);
             if(err==ESP_OK) err=pcnt_unit_enable(unit);
             if(err==ESP_OK) err=pcnt_unit_start(unit);
-            if(err!=ESP_OK) {s_state.fault=FAULT_COUNTS;chassis_stop(&s_state,true);break;}
+            // A PCNT start failure only disables counting for this unit.
+            // It must not stop the drivetrain.
+            if(err!=ESP_OK) continue;
         }
+    } else if(c->type==CMD_PWM_DIRECT) {
+        // Normalized wheel PWM for direct mode: no ramp or encoder feedback.
+        for(int j=0;j<2;j++) {
+            double value=c->value[j];
+            if(!isfinite(value)) value=0;
+            if(value>1) value=1;
+            if(value<-1) value=-1;
+            s_state.requested[j]=s_state.target[j]=s_state.ramped[j]=value;
+            s_state.duty[j]=value;
+        }
+        s_state.command_us=c->time_us;
     } else if(c->type==CMD_WHEEL || c->type==CMD_TWIST || c->type==CMD_BODY) {
-        int64_t age=esp_timer_get_time()-c->time_us;
-        if(age<0 || age>CHASSIS_COMMAND_TIMEOUT_US) { chassis_stop(&s_state,true); return; }
+        // No local command timeout: the host's 5 s cmd_vel lease decides when
+        // motion ends, so a stale queued command is simply applied.
         if(c->type==CMD_WHEEL) chassis_command_wheels(&s_state,c->value[0],c->value[1],c->time_us);
         else if(c->type==CMD_BODY) chassis_command_body(&s_state,c->value[0],c->value[1],c->time_us);
-        else chassis_command_twist(&s_state,c->value[0],c->value[1],c->time_us);
+        else chassis_command_normalized_wheels(&s_state,c->value[0],c->value[1],c->time_us);
     }
 }
 
@@ -109,21 +141,28 @@ static void control_task(void *argument)
 {
     (void)argument;
     while(true) {
-        uint32_t notifications=ulTaskNotifyTake(pdTRUE,pdMS_TO_TICKS(30));
+        (void)ulTaskNotifyTake(pdTRUE,pdMS_TO_TICKS(30));
         bool stop;
         portENTER_CRITICAL(&s_lock);
         stop=s_stop_requested; s_stop_requested=false;
         portEXIT_CRITICAL(&s_lock);
         if(stop) {xQueueReset(s_commands); chassis_stop(&s_state,true);}
-        if(notifications==0 || notifications>4) {
-            s_state.fault=FAULT_TIMING; ++s_state.overruns; chassis_stop(&s_state,true);
-        }
+        // A late wakeup or a missed notification only weakens the estimate for
+        // that sample; it no longer latches a timing fault.
         chassis_command_t command;
-        for(int i=0;!stop && i<16 && xQueueReceive(s_commands,&command,0)==pdTRUE;i++) process_command(&command);
+        // Maintenance commands must survive a stop. chassis_stop() cancels the
+        // pending motion, but a fault also sets s_stop_requested, which resets
+        // the queue and skipped this loop entirely: CMD_CLEAR could never run,
+        // so a latched fault was unrecoverable without a power cycle.
+        for(int i=0;i<16 && xQueueReceive(s_commands,&command,0)==pdTRUE;i++) {
+            bool maintenance=command.type==CMD_CLEAR || command.type==CMD_ZERO ||
+                             command.type==CMD_CONFIG || command.type==CMD_FILTER;
+            if(!stop || maintenance) process_command(&command);
+        }
         for(int j=0;j<4;j++) {
             int phase_count;
             if(pcnt_unit_get_count(s_phase_pcnt[j],&phase_count)==ESP_OK) {
-                s_state.phase_edges[j]+=chassis_counter_delta(phase_count,s_phase_previous[j]);
+                s_state.phase_edges[j]+=pcnt_window_delta(phase_count,s_phase_previous[j]);
                 s_phase_previous[j]=phase_count;
             }
             s_state.phase_levels[j]=gpio_get_level(ENCODER_PINS[j/2][j%2]);
@@ -139,10 +178,9 @@ static void control_task(void *argument)
                 }
                 if(ea>16 && eb>16 && llabs(ea-eb)<(ea+eb)/4+4) s_state.encoder_valid[j]=true;
                 bool missing=(ea>64 && eb<=1)||(eb>64 && ea<=1);
-                if(missing) {
-                    s_state.encoder_valid[j]=false;
-                    if(s_state.armed && fabs(s_state.duty[j])>.1) {s_state.fault=FAULT_COUNTS;chassis_stop(&s_state,true);}
-                }
+                // A missing phase only invalidates that encoder's reading; it
+                // no longer stops the drivetrain.
+                if(missing) s_state.encoder_valid[j]=false;
             }
             memcpy(s_phase_window_start,s_state.phase_edges,sizeof(s_phase_window_start));
             s_phase_check_us=phase_now;
@@ -151,20 +189,32 @@ static void control_task(void *argument)
         esp_err_t a=pcnt_unit_get_count(s_pcnt[0],&counts[0]);
         esp_err_t b=pcnt_unit_get_count(s_pcnt[1],&counts[1]);
         if(a!=ESP_OK || b!=ESP_OK) {
-            s_state.fault=FAULT_COUNTS; s_state.odometry_valid=false;chassis_stop(&s_state,true);
+            // Unreadable counters mean no odometry this tick, nothing more.
+            s_state.odometry_valid=false;
         } else {
-            s_state.hardware_count[0]=counts[0];s_state.hardware_count[1]=counts[1];
-            chassis_core_tick(&s_state,esp_timer_get_time(),counts[0],counts[1]);
+            int64_t total[2];
+            for(int j=0;j<2;j++) {
+                if(!s_wheel_count_initialized[j]) {
+                    s_wheel_count_total[j]=counts[j];
+                    s_wheel_count_initialized[j]=true;
+                } else {
+                    s_wheel_count_total[j]+=chassis_accum_counter_delta(
+                        counts[j],s_wheel_count_previous[j]);
+                }
+                s_wheel_count_previous[j]=counts[j];
+                total[j]=s_wheel_count_total[j];
+                s_state.hardware_count[j]=total[j];
+            }
+            chassis_core_tick(&s_state,esp_timer_get_time(),total[0],total[1]);
         }
         for(int j=0;j<2;j++) {
             int raw_motor;
             if(pcnt_unit_get_count(s_motor_pcnt[j],&raw_motor)==ESP_OK) {
-                s_state.motor_edges[j]+=chassis_counter_delta(raw_motor,s_motor_previous[j]);
+                s_state.motor_edges[j]+=pcnt_window_delta(raw_motor,s_motor_previous[j]);
                 s_motor_previous[j]=raw_motor;
             }
             motor_write(j,s_state.duty[j]*s_state.config.motor_sign[j]);
         }
-        if(s_state.fault!=FAULT_NONE) s_state.odometry_valid=false;
         for(int j=0;j<4;j++) s_state.hardware_duty[j]=ledc_get_duty(LEDC_LOW_SPEED_MODE,(ledc_channel_t)j);
         portENTER_CRITICAL(&s_lock); s_snapshot=s_state; portEXIT_CRITICAL(&s_lock);
     }
@@ -173,6 +223,17 @@ static void control_task(void *argument)
 bool chassis_submit(const chassis_command_t *command)
 {
     if(!s_commands || !command) return false;
+    // Maintenance commands take the lock directly instead of the queue: a fault
+    // sets s_stop_requested, and control_task() responds to that by calling
+    // xQueueReset(), which would discard a queued CMD_CLEAR before it ran. Only
+    // reachable while disarmed, which process_command() re-checks under the lock.
+    if(command->type==CMD_CLEAR || command->type==CMD_ZERO ||
+       command->type==CMD_CONFIG || command->type==CMD_FILTER) {
+        portENTER_CRITICAL(&s_lock);
+        process_command(command);
+        portEXIT_CRITICAL(&s_lock);
+        return true;
+    }
     if(xQueueSend(s_commands,command,0)!=pdTRUE) {chassis_emergency_stop(); return false;}
     return true;
 }
@@ -217,10 +278,16 @@ esp_err_t chassis_hw_start(const chassis_config_t *config)
             ESP_ERROR_CHECK(gpio_set_direction(ENCODER_PINS[j][k],GPIO_MODE_INPUT));
             ESP_ERROR_CHECK(gpio_set_pull_mode(ENCODER_PINS[j][k],GPIO_PULLUP_ONLY));
         }
-        const pcnt_unit_config_t unit={.high_limit=CHASSIS_PCNT_LIMIT,.low_limit=-CHASSIS_PCNT_LIMIT,.flags.accum_count=false};
+        // accum_count extends the 16-bit hardware counter inside the PCNT
+        // driver. The control task extends that signed 32-bit result to 64 bits.
+        const pcnt_unit_config_t unit={.high_limit=CHASSIS_PCNT_LIMIT,.low_limit=-CHASSIS_PCNT_LIMIT,.flags.accum_count=true};
         ESP_ERROR_CHECK(pcnt_new_unit(&unit,&s_pcnt[j]));
         const pcnt_glitch_filter_config_t filter={.max_glitch_ns=1000};
         ESP_ERROR_CHECK(pcnt_unit_set_glitch_filter(s_pcnt[j],&filter));
+        for(int w=0;w<2;w++) {
+            const int limit=w==0?-CHASSIS_PCNT_LIMIT:CHASSIS_PCNT_LIMIT;
+            ESP_ERROR_CHECK(pcnt_unit_add_watch_point(s_pcnt[j],limit));
+        }
         bool single=config->encoder_mode[j]==ENCODER_SINGLE_A;
         for(int k=0;k<(single?1:2);k++) {
             const pcnt_chan_config_t c={.edge_gpio_num=ENCODER_PINS[j][k],.level_gpio_num=single?-1:ENCODER_PINS[j][1-k]};
@@ -230,7 +297,6 @@ esp_err_t chassis_hw_start(const chassis_config_t *config)
             ESP_ERROR_CHECK(pcnt_channel_set_level_action(channel,PCNT_CHANNEL_LEVEL_ACTION_KEEP,single?PCNT_CHANNEL_LEVEL_ACTION_KEEP:PCNT_CHANNEL_LEVEL_ACTION_INVERSE));
             gpio_pullup_en(ENCODER_PINS[j][k]);
         }
-        // No GPIO ISR, no PCNT watch callbacks, no interrupt-based accum_count.
         ESP_ERROR_CHECK(pcnt_unit_enable(s_pcnt[j]));
         ESP_ERROR_CHECK(pcnt_unit_clear_count(s_pcnt[j]));
         ESP_ERROR_CHECK(pcnt_unit_start(s_pcnt[j]));

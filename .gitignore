@@ -12,6 +12,7 @@
 /firmware/smartcar_chassis_v1/build/
 /firmware/smartcar_chassis_v1/managed_components/
 /firmware/smartcar_chassis_v1/sdkconfig
+/firmware/smartcar_chassis_v1/sdkconfig.old
 
 # Keep documentation sources, figures, build configuration and released PDFs.
 !/docs/

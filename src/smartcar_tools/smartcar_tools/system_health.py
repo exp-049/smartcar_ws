@@ -24,8 +24,10 @@ def valid_sensor(key, msg):
     if msg.header.frame_id != frames[key] or stamp_seconds(msg.header.stamp) <= 0:
         return False
     if key == 'scan':
+        # A negative increment is a valid counter-clockwise sweep: the HAL emits
+        # angle_min..angle_max descending. Only a zero/degenerate step is invalid.
         return (len(msg.ranges) > 0 and math.isfinite(msg.angle_increment)
-                and msg.angle_increment > 0 and 0 <= msg.range_min < msg.range_max
+                and abs(msg.angle_increment) > 0.0 and 0 <= msg.range_min < msg.range_max
                 and any(not math.isnan(item) for item in msg.ranges))
     if key == 'imu':
         return finite_vector(msg.angular_velocity) and finite_vector(msg.linear_acceleration)
@@ -84,8 +86,16 @@ class SystemHealth(Node):
             msg = self.samples.get(key)
             if msg is None or wall - self.received.get(key, 0.0) > self.sensor_timeout:
                 problems.append(f'{key} missing, invalid or stale')
-            elif not -0.1 <= now - stamp_seconds(msg.header.stamp) <= self.sensor_timeout:
-                problems.append(f'{key} acquisition time is not aligned with ROS time')
+            else:
+                # A header stamp is the acquisition instant, so it legitimately
+                # trails ROS now by the transport and processing latency: the UDP
+                # lidar measures about 0.115 s. Reject only stamps from the future
+                # (beyond a small tolerance for clock jitter) and stamps too old to
+                # trust; the previous -0.1 s floor sat below the real latency and
+                # rejected every scan, which latched command_guard permanently.
+                age = now - stamp_seconds(msg.header.stamp)
+                if not -0.02 <= age <= max(self.sensor_timeout, 1.0):
+                    problems.append(f'{key} acquisition time is not aligned with ROS time')
         if not self.map_valid:
             problems.append('valid map is unavailable')
         for child in ('laser_link', 'imu_link'):

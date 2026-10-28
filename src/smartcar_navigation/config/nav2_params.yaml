@@ -27,12 +27,10 @@ controller_server:
     progress_checker_plugins: [progress_checker]
     goal_checker_plugins: [general_goal_checker]
     controller_plugins: [FollowPath]
-    # Include the time needed to turn 180 degrees at 0.6 rad/s before moving.
     progress_checker: {plugin: nav2_controller::SimpleProgressChecker, required_movement_radius: 0.08, movement_time_allowance: 15.0}
     general_goal_checker: {plugin: nav2_controller::SimpleGoalChecker, stateful: false, xy_goal_tolerance: 0.08, yaw_goal_tolerance: 0.18}
     FollowPath:
-      # Face the beginning of the detour before translating.  MPPI remains
-      # the primary controller and still performs local collision avoidance.
+      # Rotate toward the start of the global path before handing off to MPPI.
       plugin: nav2_rotation_shim_controller::RotationShimController
       primary_controller: nav2_mppi_controller::MPPIController
       angular_dist_threshold: 0.60
@@ -41,8 +39,6 @@ controller_server:
       rotate_to_heading_angular_vel: 0.60
       max_angular_accel: 1.50
       simulate_ahead_time: 1.0
-      # Recheck position during final rotation; never latch an old position
-      # across a SLAM correction and rotate forever outside the tolerance.
       rotate_to_goal_heading: true
       position_checker: {stateful: false}
       rotate_to_heading_once: false
@@ -51,9 +47,7 @@ controller_server:
       model_dt: 0.05
       # Keep the final command caps in velocity_smoother, while giving the
       # optimizer enough authority to leave its zero-speed initial sequence.
-      # Jazzy publishes the selected MPPI trajectory as a nav_msgs/Path only
-      # when visualization is enabled. RViz subscribes to that path, not the
-      # candidate MarkerArray, so candidate visualization markers are skipped.
+      # Publish the selected path and sampled candidate trajectories for RViz.
       visualize: true
       batch_size: 1000
       ax_max: 1.0
@@ -153,10 +147,11 @@ global_costmap:
         plugin: nav2_costmap_2d::ObstacleLayer
         enabled: true
         observation_sources: scan
-        # The source height filter is independent of the layer's filter.
-        # Explicitly include the lidar plane (0.11 m); Jazzy's source default
-        # max_obstacle_height=0.0 otherwise discards every projected return.
-        scan: {topic: /car/scan, data_type: LaserScan, clearing: true, marking: true, min_obstacle_height: -0.10, max_obstacle_height: 0.50, raytrace_max_range: 8.0, raytrace_min_range: 0.12, obstacle_max_range: 8.0, obstacle_min_range: 0.12, inf_is_valid: true}
+        # inf marks "no return within max_range", i.e. unknown, not free. With
+        # inf_is_valid the layer treats inf as a return at raytrace_max_range and
+        # fences the costmap with phantom obstacles at 8 m; disable it so blind
+        # directions stay unknown instead of being marked or cleared.
+        scan: {topic: /car/scan, data_type: LaserScan, clearing: true, marking: true, min_obstacle_height: -0.10, max_obstacle_height: 0.50, raytrace_max_range: 8.0, raytrace_min_range: 0.12, obstacle_max_range: 5.0, obstacle_min_range: 0.12, inf_is_valid: false}
       inflation_layer: {plugin: nav2_costmap_2d::InflationLayer, cost_scaling_factor: 5.0, inflation_radius: 0.26}
 
 local_costmap:
@@ -183,7 +178,7 @@ local_costmap:
         plugin: nav2_costmap_2d::ObstacleLayer
         enabled: true
         observation_sources: scan
-        scan: {topic: /car/scan, data_type: LaserScan, clearing: true, marking: true, min_obstacle_height: -0.10, max_obstacle_height: 0.50, raytrace_max_range: 8.0, raytrace_min_range: 0.12, obstacle_max_range: 8.0, obstacle_min_range: 0.12, inf_is_valid: true}
+        scan: {topic: /car/scan, data_type: LaserScan, clearing: true, marking: true, min_obstacle_height: -0.10, max_obstacle_height: 0.50, raytrace_max_range: 8.0, raytrace_min_range: 0.12, obstacle_max_range: 3.0, obstacle_min_range: 0.12, inf_is_valid: false}
       inflation_layer: {plugin: nav2_costmap_2d::InflationLayer, cost_scaling_factor: 5.0, inflation_radius: 0.26}
 
 behavior_server:
@@ -233,7 +228,11 @@ collision_monitor:
     cmd_vel_out_topic: /car/cmd_vel_checked
     state_topic: collision_monitor_state
     transform_tolerance: 0.2
-    source_timeout: 0.5
+    # The UDP lidar anchors its own clock to the host, and that anchor drifts:
+    # measured source-vs-node skew grows past 0.5 s within seconds, which made
+    # collision_monitor discard every scan and hold the robot in STOP. Keep the
+    # timeout wide enough to ride out the skew until the HAL clock is fixed.
+    source_timeout: 3.0
     stop_pub_timeout: 0.5
     polygons: [FootprintApproach]
     FootprintApproach: {type: polygon, action_type: approach, footprint_topic: /local_costmap/published_footprint, time_before_collision: 1.2, simulation_time_step: 0.1, min_points: 6, visualize: false, enabled: true}
@@ -260,8 +259,11 @@ command_guard:
     use_sim_time: true
     input_topic: /car/cmd_vel_checked
     output_topic: /car/chassis/cmd_vel
-    timeout_sec: 0.5
-    sensor_timeout_sec: 0.5
-    transform_timeout_sec: 0.5
+    # Command lease only; no sensor/TF health gating in this node.
+    timeout_sec: 5.0
     max_linear_velocity: 0.20
     max_angular_velocity: 1.20
+    normalized_output: false
+    # Wheel speed in m/s represented by normalized PWM magnitude 1.0.
+    speed_per_pwm: 0.35
+    wheel_separation: 0.133
