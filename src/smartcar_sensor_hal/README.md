@@ -5,7 +5,7 @@ Ubuntu 24.04 / ROS 2 Jazzy 的 `ament_python` 包。一个进程接收 ESP32-S3 
 | 接口 | ROS 2 类型 | frame_id | QoS |
 |---|---|---|---|
 | `/car/scan` | `sensor_msgs/msg/LaserScan` | `laser_link` | SensorData |
-| `/car/imu/data_raw` | `sensor_msgs/msg/Imu` | `imu_link` | SensorData |
+| `/car/imu/data_raw` | `sensor_msgs/msg/Imu` | `base_link` | SensorData |
 | `/diagnostics` | `diagnostic_msgs/msg/DiagnosticArray` | 无 TF | 默认深度 10 |
 
 HAL 不发布 `/tf` 或 `/tf_static`。固定安装关系仍由第三个人维护的唯一 `robot_state_publisher` 发布，动态定位 TF 由 Cartographer 发布。
@@ -93,7 +93,7 @@ Cartographer 的原厂转换实现处理负角增量：[msg_conversion.cc](https
 
 加速度为 m/s²（保留重力），角速度为 rad/s。未提供姿态估计，`orientation_covariance[0] = -1`。
 
-`imu_acceleration_bias_m_s2` 和 `imu_angular_velocity_bias_rad_s` 默认三轴 0，应由第三个人提供实测标定值。不要将静止时的重力分量当成加速度零偏扣掉。`imu_*_covariance` 默认全 0，按消息语义表示未知；没有伪造精度。安装轴变换应与 `imu_link` 的模型定义一致，避免同时在数据和 TF 中重复旋转。
+`imu_axis_permutation` 和 `imu_axis_signs` 将原始 XYZ 通道变换到发布坐标；当前为 `[1, 0, 2]` 和 `[1, 1, -1]`，即发布 XYZ=`(raw Y, raw X, -raw Z)`。IMU 消息标记为 `base_link`，不会再通过 `imu_link` TF 二次旋转。偏置在发布坐标中配置；协方差应用相同的轴置换和符号变换。2026-10-29 在小车静止放地面时采集 10 秒、501 个样本；更新前的发布均值为加速度 `[0.092670, -0.001725, 9.809847] m/s²`、角速度 `[-0.000075, 0.001063, 0.000224] rad/s`，配置偏置据此累计修正，使静止目标均值为加速度 `[0, 0, +9.80665] m/s²`、角速度 `[0, 0, 0] rad/s`。加速度单姿态标定假设地面水平；若地面不水平，重力投影也会进入 X/Y 偏置。不要把 `+9.80665 m/s²` 本身作为偏置扣除。`imu_*_covariance` 默认全 0，按消息语义表示未知；没有伪造精度。
 
 ## 运行检查
 

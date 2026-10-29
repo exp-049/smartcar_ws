@@ -12,6 +12,9 @@
   <xacro:property name="body_height" value="${model['body_height']}"/>
   <xacro:property name="body_mass" value="${model['body_mass']}"/>
   <xacro:property name="body_z" value="${model['body_z']}"/>
+  <!-- The bottom plate is centered in XY under the lidar scan axis. -->
+  <xacro:property name="body_center_x" value="${float(model['laser_xyz'].split()[0])}"/>
+  <xacro:property name="body_center_y" value="${float(model['laser_xyz'].split()[1])}"/>
   <xacro:property name="inertia_xx" value="${model['inertia_xx']}"/>
   <xacro:property name="inertia_yy" value="${model['inertia_yy']}"/>
   <xacro:property name="inertia_zz" value="${model['inertia_zz']}"/>
@@ -26,7 +29,7 @@
   <!-- base_link is the wheel axle midpoint projected to the ground. -->
   <link name="base_link">
     <inertial>
-      <origin xyz="0 0 ${body_z}"/>
+      <origin xyz="${body_center_x} ${body_center_y} ${body_z}"/>
       <mass value="${body_mass}"/>
       <!-- Solid 0.180 x 0.110 x 0.020 m box; values satisfy Gazebo's
            positive-definite inertia triangle inequalities. -->
@@ -34,8 +37,8 @@
            fixed sensor / caster links into base_link. -->
       <inertia ixx="${inertia_xx}" ixy="0" ixz="0" iyy="${inertia_yy}" iyz="0" izz="${inertia_zz}"/>
     </inertial>
-    <visual><origin xyz="0 0 ${body_z}"/><geometry><box size="${body_length} ${body_width} ${body_height}"/></geometry><material name="blue"/></visual>
-    <collision><origin xyz="0 0 ${body_z}"/><geometry><box size="${body_length} ${body_width} ${body_height}"/></geometry></collision>
+    <visual><origin xyz="${body_center_x} ${body_center_y} ${body_z}"/><geometry><box size="${body_length} ${body_width} ${body_height}"/></geometry><material name="blue"/></visual>
+    <collision><origin xyz="${body_center_x} ${body_center_y} ${body_z}"/><geometry><box size="${body_length} ${body_width} ${body_height}"/></geometry></collision>
   </link>
   <link name="chassis_link"/>
   <joint name="base_to_chassis" type="fixed"><parent link="base_link"/><child link="chassis_link"/><origin xyz="${model['chassis_xyz']}" rpy="${model['chassis_rpy']}"/></joint>
@@ -57,11 +60,15 @@
   <joint name="right_wheel_joint" type="continuous"><parent link="base_link"/><child link="right_wheel"/><origin xyz="0 ${-wheel_separation / 2.0} ${wheel_radius}"/><axis xyz="0 1 0"/></joint>
 
   <link name="front_caster"><inertial><mass value="0.025"/><inertia ixx="0.000002" ixy="0" ixz="0" iyy="0.000002" iyz="0" izz="0.000002"/></inertial><visual><geometry><sphere radius="0.012"/></geometry><material name="grey"/></visual><collision><geometry><sphere radius="0.012"/></geometry></collision></link>
-  <joint name="front_caster_joint" type="fixed"><parent link="base_link"/><child link="front_caster"/><origin xyz="0.070 0 ${0.012 + caster_clearance}"/></joint>
-  <link name="rear_caster"><inertial><mass value="0.025"/><inertia ixx="0.000002" ixy="0" ixz="0" iyy="0.000002" iyz="0" izz="0.000002"/></inertial><visual><geometry><sphere radius="0.012"/></geometry><material name="grey"/></visual><collision><geometry><sphere radius="0.012"/></geometry></collision></link>
-  <joint name="rear_caster_joint" type="fixed"><parent link="base_link"/><child link="rear_caster"/><origin xyz="-0.070 0 ${0.012 + caster_clearance}"/></joint>
+  <joint name="front_caster_joint" type="fixed"><parent link="base_link"/><child link="front_caster"/><origin xyz="0.110 0 ${0.012 + caster_clearance}"/></joint>
 
-  <link name="laser_link"><visual><origin xyz="0 0 0.0125"/><geometry><cylinder radius="0.035" length="0.025"/></geometry><material name="red"/></visual></link>
+  <link name="laser_link">
+    <!-- CAD origin is the X3 scan axis; the mesh is already converted to metres. -->
+    <visual>
+      <geometry><mesh filename="package://smartcar_description/meshes/x3_lidar.stl"/></geometry>
+      <material name="black"/>
+    </visual>
+  </link>
   <joint name="laser_joint" type="fixed"><parent link="base_link"/><child link="laser_link"/><origin xyz="${model['laser_xyz']}" rpy="${model['laser_rpy']}"/></joint>
   <link name="imu_link"><visual><geometry><box size="0.028 0.020 0.008"/></geometry><material name="green"/></visual></link>
   <joint name="imu_joint" type="fixed"><parent link="base_link"/><child link="imu_link"/><origin xyz="${model['imu_xyz']}" rpy="${model['imu_rpy']}"/></joint>
@@ -69,7 +76,6 @@
   <xacro:if value="$(arg use_gazebo)">
   <gazebo reference="base_link"><gravity>true</gravity><self_collide>false</self_collide></gazebo>
   <gazebo reference="front_caster"><mu1>0.02</mu1><mu2>0.02</mu2></gazebo>
-  <gazebo reference="rear_caster"><mu1>0.02</mu1><mu2>0.02</mu2></gazebo>
   <gazebo reference="laser_link">
     <sensor name="x3pro_lidar" type="gpu_lidar"><always_on>true</always_on><visualize>true</visualize><update_rate>10</update_rate><topic>/car/scan</topic><gz_frame_id>laser_link</gz_frame_id><lidar><scan><horizontal><samples>400</samples><resolution>1</resolution><min_angle>-3.14159265359</min_angle><max_angle>3.14159265359</max_angle></horizontal></scan><range><min>0.12</min><max>8.0</max><resolution>0.01</resolution></range></lidar></sensor>
   </gazebo>

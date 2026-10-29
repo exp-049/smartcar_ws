@@ -20,8 +20,9 @@ def finite_vector(vector):
 
 def valid_sensor(key, msg):
     """Validate the public data contract without treating no lidar return as an error."""
-    frames = {'scan': 'laser_link', 'imu': 'imu_link', 'odom': 'chassis_odom'}
-    if msg.header.frame_id != frames[key] or stamp_seconds(msg.header.stamp) <= 0:
+    frames = {'scan': ('laser_link',), 'imu': ('imu_link', 'base_link'),
+              'odom': ('chassis_odom',)}
+    if msg.header.frame_id not in frames[key] or stamp_seconds(msg.header.stamp) <= 0:
         return False
     if key == 'scan':
         # A negative increment is a valid counter-clockwise sweep: the HAL emits
@@ -98,8 +99,11 @@ class SystemHealth(Node):
                     problems.append(f'{key} acquisition time is not aligned with ROS time')
         if not self.map_valid:
             problems.append('valid map is unavailable')
-        for child in ('laser_link', 'imu_link'):
-            key = 'scan' if child == 'laser_link' else 'imu'
+        for key, default_child in (('scan', 'laser_link'), ('imu', None)):
+            child = (self.samples[key].header.frame_id if key == 'imu' and key in self.samples
+                     else default_child)
+            if child is None:
+                continue
             if key in self.samples and not self.buffer.can_transform(
                     'base_link', child, Time.from_msg(self.samples[key].header.stamp)):
                 problems.append(f'base_link -> {child} TF unavailable at acquisition time')

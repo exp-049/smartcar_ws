@@ -30,12 +30,14 @@ def generate_launch_description():
         DeclareLaunchArgument('calibration_file', default_value=os.path.join(package_share, 'config', 'nominal.yaml')),
         DeclareLaunchArgument('use_rviz', default_value='true'),
         DeclareLaunchArgument('use_joint_state_publisher', default_value='false'),
+        DeclareLaunchArgument('rviz_config_file', default_value=os.path.join(
+            package_share, 'rviz', 'smartcar_nav.rviz')),
         OpaqueFunction(function=publish_model),
         Node(package='joint_state_publisher', executable='joint_state_publisher', name='joint_state_publisher',
              condition=IfCondition(LaunchConfiguration('use_joint_state_publisher')),
              parameters=[{'use_sim_time': clock}], output='screen'),
         Node(package='rviz2', executable='rviz2', name='rviz2',
-             arguments=['-d', os.path.join(package_share, 'rviz', 'smartcar_nav.rviz')],
+             arguments=['-d', LaunchConfiguration('rviz_config_file')],
              condition=IfCondition(LaunchConfiguration('use_rviz')),
              parameters=[{'use_sim_time': clock}], output='screen'),
     ])

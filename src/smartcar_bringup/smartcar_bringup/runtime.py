@@ -202,6 +202,7 @@ def launch_stack(context, mode):
     actions.append(include('smartcar_cartographer', 'cartographer.launch.py', mode=mode,
                            configuration_basename=config, use_sim_time=sim_time,
                            use_odom=value(context, 'use_odom'), use_imu=value(context, 'use_imu'),
+                           pose_stale_timeout_sec='0.3' if runtime == 'real' else '0.0',
                            state_file=value(context, 'state_file') if mode == 'localization' else ''))
     if mode == 'localization':
         actions.extend([

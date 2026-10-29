@@ -10,6 +10,9 @@
 # include zero. The firmware handles the motor deadzone in its PWM mapping.
 controller_server:
   ros__parameters:
+    # Keep the optimizer within the available CPU budget while following more
+    # closely through the path critics configured below.
+    controller_frequency: 20.0
     FollowPath:
       # The wheel odometry velocity is uncalibrated; use MPPI's command estimate.
       open_loop: true
@@ -22,6 +25,13 @@ controller_server:
       # Bias sampling toward the cruise band so the optimizer prefers moving
       # briskly through the deadzone instead of creeping at its lower edge.
       vx_std: 0.08
+      # Keep the optimized trajectory closer to the nearby global path.
+      PathAlignCritic:
+        cost_weight: 18.0
+        offset_from_furthest: 12
+      PathFollowCritic:
+        cost_weight: 7.0
+        offset_from_furthest: 3
 behavior_server:
   ros__parameters:
     max_rotational_vel: 0.80

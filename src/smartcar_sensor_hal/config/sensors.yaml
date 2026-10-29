@@ -10,7 +10,9 @@ smartcar_sensor_hal:
     enable_lidar: true
     enable_imu: true
     scan_frame_id: 'laser_link'
-    imu_frame_id: 'imu_link'
+    imu_frame_id: 'base_link'
+    imu_axis_permutation: [1, 0, 2]
+    imu_axis_signs: [1, 1, -1]  # output XYZ = (raw Y, raw X, -raw Z); static gravity is +Z
     lidar_sample_rate_hz: 4000.0
     lidar_baudrate: 115200
     range_min_m: 0.12
@@ -24,8 +26,8 @@ smartcar_sensor_hal:
     max_scan_interpolation_error_ms: 10.0
     imu_filter_delay_us: 4850.0  # DLPF=3: accel 4.9 ms / gyro 4.8 ms, shared estimate
     imu_filter_delay_calibrated: false
-    imu_acceleration_bias_m_s2: [0.0, 0.0, 0.0]
-    imu_angular_velocity_bias_rad_s: [0.0, 0.0, 0.0]
+    imu_acceleration_bias_m_s2: [0.175816, -0.415805, 0.726674]
+    imu_angular_velocity_bias_rad_s: [-0.010703, -0.090090, -0.026993]
     imu_acceleration_covariance: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
     imu_angular_velocity_covariance: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
     max_sync_uncertainty_ms: 10.0

@@ -24,6 +24,9 @@ def cartographer_nodes(context):
 
     use_odom = sensor_flag('use_odom')
     use_imu = sensor_flag('use_imu')
+    stale_timeout = float(LaunchConfiguration('pose_stale_timeout_sec').perform(context))
+    if not (stale_timeout >= 0.0 and stale_timeout < float('inf')):
+        raise RuntimeError('pose_stale_timeout_sec must be finite and non-negative')
     basename = LaunchConfiguration('configuration_basename').perform(context)
     if (not basename or Path(basename).name != basename
             or any(ord(char) < 32 for char in basename)):
@@ -43,7 +46,7 @@ def cartographer_nodes(context):
                           f'TRAJECTORY_BUILDER_2D.use_imu_data = {use_imu}\n'
                           'return options\n')
             wrapper_name = Path(wrapper.name).name
-        return make_nodes(config_dir, wrapper_name) + [
+        return make_nodes(config_dir, wrapper_name, stale_timeout, use_imu, use_odom) + [
             RegisterEventHandler(OnShutdown(on_shutdown=[
                 OpaqueFunction(function=lambda context: temp_dir.cleanup())]))]
     except Exception:
@@ -51,26 +54,42 @@ def cartographer_nodes(context):
         raise
 
 
-def make_nodes(config_dir, basename):
+def make_nodes(config_dir, basename, stale_timeout, use_imu, use_odom):
     mode = LaunchConfiguration('mode')
     state = LaunchConfiguration('state_file')
     cartographer_args = ['-configuration_directory', str(config_dir),
                          '-configuration_basename', basename]
     mapping = IfCondition(PythonExpression(["'", mode, "' == 'mapping'"]))
     localization = IfCondition(PythonExpression(["'", mode, "' == 'localization'"]))
-    return [
+    tf_remappings = ([('/tf', '/cartographer_internal/tf'),
+                      ('/tf_static', '/cartographer_internal/tf_static')]
+                     if stale_timeout > 0.0 else [])
+    actions = [
         Node(package='cartographer_ros', executable='cartographer_node', name='cartographer_node',
              condition=mapping, arguments=cartographer_args,
-             remappings=[('scan', '/car/scan'), ('imu', '/car/imu/data_raw'), ('odom', '/car/chassis/odom')],
+             remappings=[('scan', '/car/scan'), ('imu', '/car/imu/data_raw'),
+                         ('odom', '/car/chassis/odom')] + tf_remappings,
              parameters=[{'use_sim_time': ParameterValue(LaunchConfiguration('use_sim_time'), value_type=bool)}], output='screen'),
         Node(package='cartographer_ros', executable='cartographer_node', name='cartographer_localization_node',
              condition=localization, arguments=cartographer_args + ['-load_state_filename', state],
-             remappings=[('scan', '/car/scan'), ('imu', '/car/imu/data_raw'), ('odom', '/car/chassis/odom')],
+             remappings=[('scan', '/car/scan'), ('imu', '/car/imu/data_raw'),
+                         ('odom', '/car/chassis/odom')] + tf_remappings,
              parameters=[{'use_sim_time': ParameterValue(LaunchConfiguration('use_sim_time'), value_type=bool)}], output='screen'),
         Node(package='cartographer_ros', executable='cartographer_occupancy_grid_node', name='occupancy_grid_node',
              arguments=['-resolution', '0.025', '-publish_period_sec', '1.0'],
              condition=mapping, parameters=[{'use_sim_time': ParameterValue(LaunchConfiguration('use_sim_time'), value_type=bool)}], output='screen'),
     ]
+    if stale_timeout > 0.0:
+        actions.insert(0, Node(package='smartcar_tools', executable='cartographer_tf_guard',
+                               name='cartographer_tf_guard',
+                               parameters=[{'stale_timeout_sec': stale_timeout,
+                                            'require_imu': use_imu == 'true',
+                                            'require_odom': use_odom == 'true',
+                                            'use_sim_time': ParameterValue(
+                                                LaunchConfiguration('use_sim_time'),
+                                                value_type=bool)}],
+                               output='screen'))
+    return actions
 
 
 def generate_launch_description():
@@ -82,5 +101,7 @@ def generate_launch_description():
         DeclareLaunchArgument('mapping', default_value='true'),
         DeclareLaunchArgument('use_odom', default_value='true', description='Fuse odometry in Cartographer'),
         DeclareLaunchArgument('use_imu', default_value='true', description='Fuse IMU data in Cartographer'),
+        DeclareLaunchArgument('pose_stale_timeout_sec', default_value='0.0',
+                              description='Stop relaying Cartographer pose TF after required sensor streams go stale; 0 disables the guard'),
         OpaqueFunction(function=cartographer_nodes),
     ])

@@ -106,10 +106,14 @@ ros2 launch smartcar_bringup mapping_nav.launch.py runtime:=sim
 ros2 launch smartcar_bringup mapping_nav.launch.py runtime:=real \
   calibration_file:=/path/to/car01.yaml
 
-# 只启动实机 Agent、HAL 和机器人模型，不启动建图/导航
+# 实机硬件启动：启动 Agent、HAL、机器人模型和 RViz，不启动建图/导航
+# 此入口不要求底盘里程计 TF；标定文件必须是实测配置（status: measured）
 ros2 launch smartcar_bringup real.launch.py \
-  calibration_file:=/path/to/car01.yaml
+  calibration_file:=/home/doc049/dev/smartcar_ws/src/smartcar_description/config/real.yaml \
+  chassis_interface:=wlp0s20f3
 ```
+
+默认会启动本工作区的传感器 HAL 和官方 `micro_ros_agent`。如果 Agent 已在另一个终端运行，追加 `start_agent:=false`；`chassis_interface` 填写主机连接底盘网络的网卡名。
 
 `thirdparty/smartcar_udp_heartbeat/` 保存 UDP 固件、协议、主机工具和验证资料的源码快照；
 `src/smartcar_sensor_hal` 是加入本工作区的 ROS 2 驱动，默认经 `smartcar_hal` 接口启动并发布雷达、IMU 和诊断话题。
@@ -133,6 +137,20 @@ ros2 run micro_ros_setup build_agent.sh
 source install/local_setup.bash
 ros2 pkg prefix micro_ros_agent
 ```
+
+单独启动 micro-ROS Agent（不启动传感器 HAL、机器人模型、建图或导航）时，在新终端执行：
+
+```bash
+source /opt/ros/jazzy/setup.bash
+source ~/micro_ros_agent_ws/install/local_setup.bash
+source /home/doc049/dev/smartcar_ws/install/setup.bash
+ros2 launch smartcar_bringup agent.launch.py \
+  agent_transport:=udp4 \
+  agent_port:=8891 \
+  chassis_interface:=wlp0s20f3
+```
+
+该入口启动 Agent 和底盘发现服务：Agent 默认监听 UDP 8891，发现服务使用 UDP 8892。若只需 Agent 进程且底盘已配置 Agent 地址，可追加 `chassis_discovery:=false`。网卡名可用 `ip -br addr` 查看；示例中的 `wlp0s20f3` 是本机当前连接底盘网络的接口。
 
 该流程对应 [官方 micro-ROS Jazzy 构建说明](https://github.com/micro-ROS/micro_ros_setup/tree/jazzy)。底盘 Agent 默认使用 UDPv4 端口 8891，并由主机在 8892 端口主动发现底盘；这与传感器使用的 8888–8890 分开。可用 `agent_transport`、`agent_port` 和 `chassis_discovery_port` 覆盖，多网卡时可指定 `chassis_interface`。UDP 固件目前已编译，尚待刷写及实机联调，网络配置见[准备记录](docs/dev_log/2026-10-27-microros-udp-preparation.md)。如使用设备上原有的串口固件，指定 `agent_transport:=serial agent_device:=/dev/ttyUSB0 agent_baudrate:=460800`。
 

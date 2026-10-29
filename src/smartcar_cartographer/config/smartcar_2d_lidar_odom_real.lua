@@ -10,6 +10,9 @@
 -- Frame ownership is unchanged from smartcar_2d.lua: Cartographer still emits
 -- map -> chassis_odom -> base_link, which Nav2 and the costmaps require.
 include "smartcar_2d.lua"
+-- The live sensor HAL publishes its empirically remapped IMU vectors in
+-- base_link, so Cartographer's IMU tracking frame must be colocated there.
+options.tracking_frame = "base_link"
 options.use_odometry = false
 TRAJECTORY_BUILDER_2D.use_imu_data = false
 -- Real-lidar scans are noisier and sparser than the simulated sensor, so the

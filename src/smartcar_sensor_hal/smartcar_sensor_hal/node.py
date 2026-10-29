@@ -135,6 +135,17 @@ class SmartcarSensorHal(Node):
         self.imu_frame = str(self._parameter('imu_frame_id', 'imu_link'))
         if not self.scan_frame or not self.imu_frame or self.scan_frame.startswith('/') or self.imu_frame.startswith('/'):
             raise ValueError('frame IDs must be nonempty and have no leading slash')
+        axis_permutation = self._parameter('imu_axis_permutation', [0, 1, 2])
+        if (not isinstance(axis_permutation, (list, tuple)) or len(axis_permutation) != 3 or
+                any(type(axis) is not int for axis in axis_permutation) or
+                sorted(axis_permutation) != [0, 1, 2]):
+            raise ValueError('imu_axis_permutation must be a permutation of [0, 1, 2]')
+        self.imu_axis_permutation = tuple(axis_permutation)
+        axis_signs = self._parameter('imu_axis_signs', [1, 1, 1])
+        if (not isinstance(axis_signs, (list, tuple)) or len(axis_signs) != 3 or
+                any(type(sign) is not int or sign not in (-1, 1) for sign in axis_signs)):
+            raise ValueError('imu_axis_signs must contain three values, each -1 or 1')
+        self.imu_axis_signs = tuple(axis_signs)
         self.range_min = float(self._parameter('range_min_m', 0.12))
         self.range_max = float(self._parameter('range_max_m', 8.0))
         if not 0 <= self.range_min < self.range_max or not math.isfinite(self.range_max):
@@ -474,12 +485,22 @@ class SmartcarSensorHal(Node):
         message.header.stamp.sec, message.header.stamp.nanosec = divmod(stamp, 1_000_000_000)
         message.header.frame_id = self.imu_frame
         message.orientation_covariance[0] = -1.0
+        axes = getattr(self, 'imu_axis_permutation', (0, 1, 2))
+        signs = getattr(self, 'imu_axis_signs', (1, 1, 1))
+        acceleration = tuple(signs[axis] * parsed.acceleration_m_s2[index]
+                             for axis, index in enumerate(axes))
+        angular_velocity = tuple(signs[axis] * parsed.angular_velocity_rad_s[index]
+                                 for axis, index in enumerate(axes))
         message.linear_acceleration.x, message.linear_acceleration.y, message.linear_acceleration.z = (
-            value - bias for value, bias in zip(parsed.acceleration_m_s2, self.accel_bias))
+            value - bias for value, bias in zip(acceleration, self.accel_bias))
         message.angular_velocity.x, message.angular_velocity.y, message.angular_velocity.z = (
-            value - bias for value, bias in zip(parsed.angular_velocity_rad_s, self.gyro_bias))
-        message.linear_acceleration_covariance = self.accel_covariance
-        message.angular_velocity_covariance = self.gyro_covariance
+            value - bias for value, bias in zip(angular_velocity, self.gyro_bias))
+        message.linear_acceleration_covariance = [
+            signs[row] * signs[column] * self.accel_covariance[3 * axes[row] + axes[column]]
+            for row in range(3) for column in range(3)]
+        message.angular_velocity_covariance = [
+            signs[row] * signs[column] * self.gyro_covariance[3 * axes[row] + axes[column]]
+            for row in range(3) for column in range(3)]
         self._imu_pub.publish(message)
         self._counts['imu_published'] += 1
 

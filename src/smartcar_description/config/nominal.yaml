@@ -27,4 +27,4 @@ model:
 calibration_ownership:
   installation_extrinsics: robot_state_publisher
   effective_wheel_geometry_and_encoder_conversion: chassis_firmware
-  imu_bias_scale_and_axis_conversion: esp32_s3_imu_module
+  imu_bias_scale_and_axis_conversion: smartcar_sensor_hal

@@ -47,7 +47,7 @@ Visualization Manager:
       Name: Map
       Topic:
         Depth: 5
-        Durability Policy: Volatile
+        Durability Policy: Transient Local
         Filter size: 10
         History Policy: Keep Last
         Reliability Policy: Reliable
@@ -117,7 +117,7 @@ Visualization Manager:
         Durability Policy: Volatile
         History Policy: Keep Last
         Reliability Policy: Reliable
-        Value: ""
+        Value: /robot_description
       Enabled: true
       Links:
         All Links Enabled: true
@@ -162,7 +162,7 @@ Visualization Manager:
         Durability Policy: Volatile
         Filter size: 10
         History Policy: Keep Last
-        Reliability Policy: Reliable
+        Reliability Policy: Best Effort
         Value: /car/scan
       Use Fixed Frame: true
       Use rainbow: true
@@ -190,8 +190,6 @@ Visualization Manager:
           Value: true
         map:
           Value: true
-        rear_caster:
-          Value: true
         right_wheel:
           Value: true
       Marker Scale: 0.30000001192092896
@@ -212,8 +210,6 @@ Visualization Manager:
               laser_link:
                 {}
               left_wheel:
-                {}
-              rear_caster:
                 {}
               right_wheel:
                 {}

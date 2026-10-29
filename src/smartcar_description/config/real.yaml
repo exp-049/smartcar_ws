@@ -3,10 +3,10 @@
 # is expressed in base_link, so z is height above the ground.
 metadata:
   robot_id: car01
-  calibration_version: measured-2026-10-28
+  calibration_version: measured-2026-10-29
   status: measured
-  measurement_method: manual tape measurement from base_link origin
-  source_data: operator measurement 2026-10-28
+  measurement_method: manual tape geometry plus stationary IMU averaging
+  source_data: operator geometry 2026-10-28; IMU static 10 s, 501 samples 2026-10-29
 # Physical geometry only. Effective odometry parameters belong to chassis firmware.
 model:
   wheel_radius: 0.024
@@ -31,10 +31,10 @@ model:
 calibration_ownership:
   installation_extrinsics: robot_state_publisher
   effective_wheel_geometry_and_encoder_conversion: chassis_firmware
-  imu_bias_scale_and_axis_conversion: esp32_s3_imu_module
+  imu_bias_scale_and_axis_conversion: smartcar_sensor_hal
 # Provenance only: not applied again by the ROS model or HAL template.
 device_calibration:
   chassis_firmware_version: "0.4.0"
   chassis_calibration_version: measured-2026-10-28
   imu_firmware_version: esp32_s3_imu_module-unknown
-  imu_calibration_version: uncalibrated-bias
+  imu_calibration_version: host-static-offset-2026-10-29-10s-501
