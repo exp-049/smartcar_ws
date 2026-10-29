@@ -112,13 +112,14 @@ global_costmap:
       global_frame: map
       robot_base_frame: base_link
       robot_radius: 0.13
-      resolution: 0.025
-      # Keep a rolling planning window so a goal is not rejected merely
-      # because it is outside the finite raster currently published by the
-      # map server.  Unknown cells remain available to Smac when requested.
+      # Keep a larger rolling planning window so goals beyond the mapped area
+      # can still be planned as unknown. Smac allows unknown cells below.
+      # This finite 50 m window supports direct goals roughly 25 m from the
+      # robot; targets farther away need staged goals or a larger window.
       rolling_window: true
-      width: 20
-      height: 20
+      width: 50
+      height: 50
+      resolution: 0.05
       track_unknown_space: true
       # StaticLayer reads these map interpretation parameters from the
       # global costmap namespace (not the plugin namespace).

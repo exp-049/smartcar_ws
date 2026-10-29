@@ -42,6 +42,8 @@
 !/src/
 /src/*
 !/src/smartcar_*/
+!/src/micro_ros_agent
+!/src/micro_ros_msgs
 /src/smartcar_intro/
 
 # Legacy course-only Gazebo examples and their tests.
@@ -58,6 +60,8 @@
 !/scripts/validate_system.py
 !/scripts/verify_*.py
 !/scripts/generate_wheel_collision.py
+!/scripts/record_smartcar_bag.sh
+!/scripts/play_smartcar_bag.sh
 
 # Keep the map output directory, but not generated map snapshots.
 !/maps/

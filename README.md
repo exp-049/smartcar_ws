@@ -24,7 +24,7 @@
 ```bash
 cd /home/doc049/dev/smartcar_ws && \
 source /opt/ros/jazzy/setup.bash && \
-colcon build --symlink-install --packages-up-to smartcar_bringup && \
+colcon build --symlink-install --packages-up-to smartcar_bringup micro_ros_agent && \
 source install/setup.bash && \
 export FASTDDS_BUILTIN_TRANSPORTS=UDPv4 && \
 ros2 launch smartcar_bringup mapping_nav.launch.py
@@ -66,6 +66,26 @@ ros2 launch smartcar_bringup lidar_mapping.launch.py
 UDP 驱动仍使用其默认传感器配置；若驱动已经运行，可传 `start_sensor:=false` 避免重复占用端口。
 可传 `device_ip:=实际S3地址` 或 `broadcast_address:=子网广播地址` 调整发现方式。
 如果没有扫描数据，检查 `/car/scan` 和 `/diagnostics`；驱动需要发现设备、取得租约并完成时间同步才会发布数据。
+
+## 录制与回放
+
+启动 ROS 2 系统后，在另一个终端运行录制脚本。默认将雷达、IMU、底盘里程计、TF、关节状态、诊断和地图保存到工作区的 `bags/`；也可指定输出目录。速度指令话题不会录入：
+
+```bash
+./scripts/record_smartcar_bag.sh
+# 或指定目录
+./scripts/record_smartcar_bag.sh /data/rosbags/test_drive
+```
+
+按 Ctrl-C 结束录制。回放脚本默认把话题映射到 `/rosbag_replay/...`，与当前运行的机器人节点隔离；传 `--live` 才会回放到原话题名。实时回放前先停止实车控制和导航节点：
+
+```bash
+./scripts/play_smartcar_bag.sh /data/rosbags/test_drive
+# 回放到原始 ROS 话题名
+./scripts/play_smartcar_bag.sh --live /data/rosbags/test_drive
+```
+
+回放会发布 `/clock`，供使用仿真时间的离线节点同步时间。脚本会自动加载 ROS 2 Jazzy 和当前工作区 overlay。
 
 ## Cartographer 传感器融合开关
 
@@ -116,33 +136,19 @@ ros2 launch smartcar_bringup real.launch.py \
 默认会启动本工作区的传感器 HAL 和官方 `micro_ros_agent`。如果 Agent 已在另一个终端运行，追加 `start_agent:=false`；`chassis_interface` 填写主机连接底盘网络的网卡名。
 
 `thirdparty/smartcar_udp_heartbeat/` 保存 UDP 固件、协议、主机工具和验证资料的源码快照；
-`src/smartcar_sensor_hal` 是加入本工作区的 ROS 2 驱动，默认经 `smartcar_hal` 接口启动并发布雷达、IMU 和诊断话题。
+`thirdparty/micro_ros_agent/` 与 `thirdparty/micro_ros_msgs/` 保存 ROS 2 Jazzy Agent 和消息包源码，
+由 `src/micro_ros_agent`、`src/micro_ros_msgs` 软链接加入本工作区。`src/smartcar_sensor_hal` 是工作区的 ROS 2 驱动，默认经 `smartcar_hal` 接口启动并发布雷达、IMU 和诊断话题。
 默认传感器配置面向 `192.168.0.0/24`；其他网络请复制 `src/smartcar_sensor_hal/config/sensors.yaml`，调整 `broadcast_address`，
-并向 bringup 传入 `hal_params_file:=/绝对路径/配置.yaml`。本机没有 ROS 包形式的官方 `micro_ros_agent` 时，实机入口会明确提示安装或外部运行后关闭 `start_agent`；
+并向 bringup 传入 `hal_params_file:=/绝对路径/配置.yaml`。Agent 尚未构建时，实机入口会明确提示构建本工作区或外部运行后关闭 `start_agent`；
 系统中的 `MicroXRCEAgent` 不会被自动当作 ROS 节点替代。
 
-在 Ubuntu 24.04 / ROS 2 Jazzy 上，可使用官方 `micro_ros_setup` 分支创建 Agent 工作区：
-
-```bash
-source /opt/ros/jazzy/setup.bash
-mkdir -p "$HOME/micro_ros_agent_ws/src"
-cd "$HOME/micro_ros_agent_ws"
-git clone -b jazzy https://github.com/micro-ROS/micro_ros_setup.git src/micro_ros_setup
-rosdep update --rosdistro=jazzy
-rosdep install --from-paths src --ignore-src -y
-colcon build
-source install/local_setup.bash
-ros2 run micro_ros_setup create_agent_ws.sh
-ros2 run micro_ros_setup build_agent.sh
-source install/local_setup.bash
-ros2 pkg prefix micro_ros_agent
-```
+Agent 和消息包已纳入 `smartcar_ws`，首次构建时会与 bringup 一起编译；
+XRCE-DDS 源码压缩包保存在 `thirdparty/micro_ros_agent/downloads/`，SHA256 校验值固定在 Agent 的 CMake 配置中。
 
 单独启动 micro-ROS Agent（不启动传感器 HAL、机器人模型、建图或导航）时，在新终端执行：
 
 ```bash
 source /opt/ros/jazzy/setup.bash
-source ~/micro_ros_agent_ws/install/local_setup.bash
 source /home/doc049/dev/smartcar_ws/install/setup.bash
 ros2 launch smartcar_bringup agent.launch.py \
   agent_transport:=udp4 \

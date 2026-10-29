@@ -72,16 +72,20 @@ class ClockMapper:
     def __init__(self, min_samples: int = 5, max_samples: int = 40,
                  max_age_s: float = 5.0, max_rtt_ms: float = 100.0,
                  max_drift_ppm: float = 2000.0, max_jump_ms: float = 20.0,
-                 min_span_s: float = 1.0):
+                 min_span_s: float = 1.0, rtt_filter_window_ms: float = 2.0,
+                 max_residual_ms: float = 5.0):
         if (type(min_samples) is not int or type(max_samples) is not int or
                 min_samples < 5 or max_samples < min_samples):
             raise ValueError("require 5 <= min_samples <= max_samples")
-        for value in (max_age_s, max_rtt_ms, max_drift_ppm, max_jump_ms, min_span_s):
+        for value in (max_age_s, max_rtt_ms, max_drift_ppm, max_jump_ms,
+                      min_span_s, rtt_filter_window_ms, max_residual_ms):
             if type(value) not in (int, float) or not math.isfinite(value) or value <= 0:
                 raise ValueError("clock limits must be positive finite numbers")
         self.min_samples = min_samples
         self.max_age_ns = int(max_age_s * 1e9)
         self.max_rtt_ns = int(max_rtt_ms * 1e6)
+        self.rtt_filter_window_ns = int(rtt_filter_window_ms * 1e6)
+        self.max_residual_ns = int(max_residual_ms * 1e6)
         self.max_drift_ppm = float(max_drift_ppm)
         self.max_jump_ns = int(max_jump_ms * 1e6)
         self.min_span_us = min_span_s * 1e6
@@ -147,7 +151,7 @@ class ClockMapper:
 
     def _fit(self) -> None:
         best_rtt = min(sample.rtt_ns for sample in self._samples)
-        cutoff = best_rtt + max(2_000_000, best_rtt // 4)
+        cutoff = best_rtt + max(self.rtt_filter_window_ns, best_rtt // 4)
         selected = [sample for sample in self._samples if sample.rtt_ns <= cutoff]
         self._clear_model("not_enough_low_rtt_samples")
         self._inliers = len(selected)
@@ -189,7 +193,7 @@ class ClockMapper:
             return
         residual = math.sqrt(statistics.fmean(
             ((y - mean_y) - scale * (x - mean_x)) ** 2 for x, y in coordinates))
-        if residual > 5_000_000:
+        if residual > self.max_residual_ns:
             self._reason = "excessive_residual"
             return
         self._scale = scale

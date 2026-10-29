@@ -6,6 +6,7 @@
   <buildtool_depend>ament_python</buildtool_depend>
   <exec_depend>launch</exec_depend><exec_depend>launch_ros</exec_depend>
   <exec_depend>ament_index_python</exec_depend><exec_depend>python3-yaml</exec_depend>
+  <exec_depend>micro_ros_agent</exec_depend>
   <exec_depend>smartcar_hal</exec_depend><exec_depend>smartcar_sensor_hal</exec_depend><exec_depend>smartcar_description</exec_depend>
   <exec_depend>smartcar_tools</exec_depend>
   <test_depend>python3-pytest</test_depend>

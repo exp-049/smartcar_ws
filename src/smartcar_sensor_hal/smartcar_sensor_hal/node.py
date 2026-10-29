@@ -155,11 +155,20 @@ class SmartcarSensorHal(Node):
         self.imu_filter_delay_us = float(self._parameter('imu_filter_delay_us', 4850.0))
         self.imu_filter_delay_calibrated = bool(self._parameter('imu_filter_delay_calibrated', False))
         self.lidar_delay_calibrated = bool(self._parameter('lidar_device_delay_calibrated', False))
-        self.max_sync_uncertainty_ns = int(float(self._parameter('max_sync_uncertainty_ms', 10.0)) * 1e6)
+        self.max_sync_uncertainty_ns = int(float(self._parameter('max_sync_uncertainty_ms', 1000.0)) * 1e6)
+        self.max_sync_rtt_ms = float(self._parameter('max_sync_rtt_ms', 1000.0))
+        self.sync_rtt_filter_window_ms = float(self._parameter('sync_rtt_filter_window_ms', 1000.0))
+        self.max_sync_residual_ms = float(self._parameter('max_sync_residual_ms', 1000.0))
+        self.sync_request_timeout_s = float(self._parameter('sync_request_timeout_s', 1.2))
         self.max_interpolation_error_us = float(self._parameter('max_scan_interpolation_error_ms', 10.0)) * 1000.0
         self.max_sensor_age_ns = int(float(self._parameter('max_sensor_age_s', 0.5)) * 1e9)
         self.max_future_stamp_ns = int(float(self._parameter('max_future_stamp_ms', 20.0)) * 1e6)
-        if not math.isfinite(self.imu_filter_delay_us) or self.imu_filter_delay_us < 0 or self.max_sync_uncertainty_ns <= 0:
+        if (not math.isfinite(self.imu_filter_delay_us) or self.imu_filter_delay_us < 0 or
+                self.max_sync_uncertainty_ns <= 0 or not math.isfinite(self.max_sync_rtt_ms) or
+                self.max_sync_rtt_ms <= 0 or not math.isfinite(self.sync_rtt_filter_window_ms) or
+                self.sync_rtt_filter_window_ms <= 0 or not math.isfinite(self.max_sync_residual_ms) or
+                self.max_sync_residual_ms <= 0 or not math.isfinite(self.sync_request_timeout_s) or
+                self.sync_request_timeout_s <= 0):
             raise ValueError('invalid timing parameters')
         if (self.max_sensor_age_ns <= 0 or self.max_future_stamp_ns < 0 or
                 not math.isfinite(self.max_interpolation_error_us) or self.max_interpolation_error_us <= 0 or
@@ -254,7 +263,11 @@ class SmartcarSensorHal(Node):
         self._next_sync_attempt_ns = now + 1_000_000_000
         try:
             self._sync = SyncClient(lease.source_ip, port=lease.sync_port,
-                                    mapper=ClockMapper(), interval_s=0.5)
+                                    mapper=ClockMapper(max_rtt_ms=self.max_sync_rtt_ms,
+                                                       rtt_filter_window_ms=self.sync_rtt_filter_window_ms,
+                                                       max_residual_ms=self.max_sync_residual_ms),
+                                    interval_s=0.5,
+                                    request_timeout_s=self.sync_request_timeout_s)
         except OSError as error:
             self._counts['sync_socket_errors'] += 1
             self._last_error = str(error)

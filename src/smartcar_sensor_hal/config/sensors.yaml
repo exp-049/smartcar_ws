@@ -30,7 +30,11 @@ smartcar_sensor_hal:
     imu_angular_velocity_bias_rad_s: [-0.010703, -0.090090, -0.026993]
     imu_acceleration_covariance: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
     imu_angular_velocity_covariance: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-    max_sync_uncertainty_ms: 10.0
+    max_sync_uncertainty_ms: 1000.0
+    max_sync_rtt_ms: 1000.0
+    sync_rtt_filter_window_ms: 1000.0
+    max_sync_residual_ms: 1000.0
+    sync_request_timeout_s: 1.2
     max_sensor_age_s: 0.5
     max_future_stamp_ms: 20.0
     poll_period_s: 0.002
